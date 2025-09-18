@@ -1,21 +1,36 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
+
+// Existing stacks
 import FeedStack from './FeedStack';
 import CollectionsStack from './CollectionsStack';
+import ProfileStack from './ProfileStack';
+
+// Direct screens (not in stack)
 import SearchScreen from '../screens/Search/SearchScreen';
 import NotificationsScreen from '../screens/Notifications/NotificationsScreen';
-import ProfileStack from './ProfileStack';
+import HashtageScreen from '../screens/Hashtage/HashtageScreen';
+import ChatScreen from '../screens/Chat/ChatScreen';
 
 const Tab = createBottomTabNavigator();
 
 export default function MainTabs() {
   return (
-    <Tab.Navigator screenOptions={{ headerShown: false }}>
-      <Tab.Screen name="FeedTab" component={FeedStack} options={{ title: 'Home' }} />
-      <Tab.Screen name="CollectionsTab" component={CollectionsStack} options={{ title: 'Collections' }} />
+    <Tab.Navigator
+      screenOptions={{
+        headerShown: false,
+        tabBarStyle: { display: 'none' }, // hide everywhere
+      }}
+    >
+      <Tab.Screen name="FeedTab" component={FeedStack} />
+      <Tab.Screen name="CollectionsTab" component={CollectionsStack} />
       <Tab.Screen name="Search" component={SearchScreen} />
-      <Tab.Screen name="Alerts" component={NotificationsScreen} options={{ title: 'Notifications' }} />
-      <Tab.Screen name="ProfileTab" component={ProfileStack} options={{ title: 'Profile' }} />
+      <Tab.Screen name="Hashtage" component={HashtageScreen} />
+      <Tab.Screen name="Chat" component={ChatScreen} />
+      <Tab.Screen name="Alerts" component={NotificationsScreen} />
+      <Tab.Screen name="ProfileTab" component={ProfileStack} />
     </Tab.Navigator>
+
   );
 }
