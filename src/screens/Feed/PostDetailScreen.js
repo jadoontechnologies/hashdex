@@ -1,9 +1,24 @@
 import React, { useEffect, useState, useContext } from 'react';
-import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, Image, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, Image, Alert, Modal } from 'react-native';
 import { db } from '../../services/firebase';
-import { doc, collection, onSnapshot, query, orderBy, deleteDoc } from 'firebase/firestore';
+import { doc, collection, onSnapshot, query, orderBy, deleteDoc, updateDoc } from 'firebase/firestore';
 import { AuthContext } from '../../state/AuthContext';
 import { addComment, toggleLike, toggleSave } from '../../services/interactions';
+import { Picker } from '@react-native-picker/picker';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons, Feather, MaterialIcons } from '@expo/vector-icons';
+
+// relative time formatter
+function getRelativeTime(date) {
+  if (!date) return '';
+  const diff = Math.floor((Date.now() - date.getTime()) / 1000); // seconds
+  if (diff < 60) return `${diff} sec ago`;
+  if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} hrs ago`;
+  if (diff < 2592000) return `${Math.floor(diff / 86400)} days ago`;
+  if (diff < 31536000) return `${Math.floor(diff / 2592000)} months ago`;
+  return `${Math.floor(diff / 31536000)} years ago`;
+}
 
 export default function PostDetailScreen({ route, navigation }) {
   const { id } = route.params;
@@ -14,12 +29,29 @@ export default function PostDetailScreen({ route, navigation }) {
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  useEffect(() => {
-    const unsubPost = onSnapshot(doc(db, 'posts', id), snap => setPost({ id, ...snap.data() }));
-    const unsubComments = onSnapshot(query(collection(db, 'posts', id, 'comments'), orderBy('createdAt', 'asc')), snap => {
-      setComments(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
+  // edit/visibility states
+  const [isEditing, setIsEditing] = useState(false);
+  const [editText, setEditText] = useState('');
+  const [showPrivacy, setShowPrivacy] = useState(false);
+  const [visibility, setVisibility] = useState('public');
 
+  // post menu bottom sheet
+  const [showMenu, setShowMenu] = useState(false);
+
+  useEffect(() => {
+    const unsubPost = onSnapshot(doc(db, 'posts', id), snap => {
+      if (snap.exists()) {
+        const data = snap.data();
+        setPost({ id, ...data });
+        setLiked(data.likedBy?.includes(user.uid) || false);
+        setSaved(data.savedBy?.includes(user.uid) || false);
+        setVisibility(data.visibility || 'public');
+      }
+    });
+    const unsubComments = onSnapshot(
+      query(collection(db, 'posts', id, 'comments'), orderBy('createdAt', 'asc')),
+      snap => setComments(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    );
     return () => { unsubPost(); unsubComments(); };
   }, [id]);
 
@@ -29,63 +61,260 @@ export default function PostDetailScreen({ route, navigation }) {
     setNewComment('');
   };
 
+  const onLike = async () => {
+    const newState = !liked;
+    setLiked(newState);
+    await toggleLike(id, user.uid, liked);
+  };
+
+  const onSave = async () => {
+    const newState = !saved;
+    setSaved(newState);
+    await toggleSave(id, user.uid, saved);
+  };
+
   const onDelete = async () => {
+    setShowMenu(false);
     Alert.alert('Delete Post', 'Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => { await deleteDoc(doc(db, 'posts', id)); navigation.goBack(); } }
+      {
+        text: 'Delete', style: 'destructive', onPress: async () => {
+          await deleteDoc(doc(db, 'posts', id));
+          navigation.goBack();
+        }
+      }
     ]);
   };
 
-  return (
-    <ScrollView style={styles.wrap}>
-      {post && (
-        <View style={styles.postContainer}>
-          <View style={styles.header}>
-            <Text style={styles.author}>{post.author.displayName}</Text>
-            <Text style={styles.timestamp}>{post.createdAt?.toDate().toLocaleString()}</Text>
-          </View>
-          <Text style={styles.text}>{post.text}</Text>
-          {post.attachments?.map((uri, i) => <Image key={i} source={{ uri }} style={styles.image} />)}
-          <View style={styles.actions}>
-            <TouchableOpacity onPress={() => toggleLike(id, user.uid, liked)}><Text>{liked ? '❤️ Unlike' : '🤍 Like'}</Text></TouchableOpacity>
-            <TouchableOpacity onPress={() => toggleSave(id, user.uid, saved)}><Text>{saved ? '🔖 Saved' : '🔖 Save'}</Text></TouchableOpacity>
-            <TouchableOpacity onPress={() => Alert.alert('Post Menu', '', [
-              { text: 'Edit', onPress: () => navigation.navigate('EditPost', { id }) },
-              { text: 'Privacy', onPress: () => Alert.alert('Change Privacy') },
-              { text: 'Delete', style: 'destructive', onPress: onDelete },
-              { text: 'Cancel', style: 'cancel' }
-            ])}><Text>⋮ Menu</Text></TouchableOpacity>
-          </View>
-        </View>
-      )}
+  const saveEdit = async () => {
+    if (editText.trim()) {
+      await updateDoc(doc(db, 'posts', id), {
+        text: editText.trim(),
+        updatedAt: new Date()
+      });
+      setIsEditing(false);
+    }
+  };
 
-      <Text style={styles.h}>Comments</Text>
+  const savePrivacy = async (newVis) => {
+    setVisibility(newVis);
+    await updateDoc(doc(db, 'posts', id), {
+      visibility: newVis,
+      updatedAt: new Date()
+    });
+    setShowPrivacy(false);
+  };
+
+  const renderComment = ({ item }) => {
+    const createdAt = item.createdAt?.toDate();
+    const relativeTime = createdAt ? getRelativeTime(createdAt) : '';
+    return (
+      <View style={styles.commentCard}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <Text style={styles.cmtAuthor}>{item.author?.displayName}</Text>
+          <Text style={styles.cmtTime}>{relativeTime}</Text>
+        </View>
+        <Text style={styles.cmtText}>{item.text}</Text>
+      </View>
+    );
+  };
+
+  if (!post) return <Text style={{ padding: 20 }}>Loading...</Text>;
+
+  const createdAt = post.createdAt?.toDate();
+  const relativeTime = createdAt ? getRelativeTime(createdAt) : '';
+
+  return (
+    <View style={{ flex: 1 }}>
+      {/* Gradient Header */}
+      <LinearGradient
+        colors={["#F9F871", "#F28A47", "#DE5C76"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.headerGradient}
+      >
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={24} color="#fff" paddingTop={18} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Post Detail</Text>
+        <TouchableOpacity onPress={() => setShowMenu(true)}>
+          <Ionicons name="ellipsis-vertical" size={22} color="#fff" paddingTop={18} />
+        </TouchableOpacity>
+      </LinearGradient>
+
       <FlatList
+        style={styles.wrap}
         data={comments}
         keyExtractor={i => i.id}
-        renderItem={({ item }) => (
-          <Text style={styles.cmt}><Text style={{ fontWeight: '600' }}>{item.author?.displayName}:</Text> {item.text}</Text>
-        )}
+        renderItem={renderComment}
+        ListHeaderComponent={
+          <View style={styles.postCard}>
+            {/* profile row */}
+            <View style={styles.profileRow}>
+              <View style={styles.profilePic} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.author}>{post.author.displayName}</Text>
+                <Text style={styles.timestamp}>{relativeTime}</Text>
+              </View>
+            </View>
+
+            {isEditing ? (
+              <View style={styles.editBox}>
+                <TextInput
+                  style={styles.input}
+                  value={editText}
+                  onChangeText={setEditText}
+                  multiline
+                />
+                <View style={styles.row}>
+                  <TouchableOpacity onPress={saveEdit} style={styles.btn}>
+                    <Text style={{ color: '#fff' }}>Save</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setIsEditing(false)} style={[styles.btn, { backgroundColor: '#aaa' }]}>
+                    <Text style={{ color: '#fff' }}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <Text style={styles.text}>{post.text}</Text>
+            )}
+
+            {post.attachments?.map((uri, i) => (
+              <Image key={i} source={{ uri }} style={styles.image} />
+            ))}
+
+            {/* actions */}
+            <View style={styles.actions}>
+              <TouchableOpacity onPress={onLike}>
+                <Text>{liked ? '❤️ Unlike' : '🤍 Like'} ({post.stats?.likes || 0})</Text>
+              </TouchableOpacity>
+              <TouchableOpacity>
+                <Text>💬 Comment ({comments.length})</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={onSave}>
+                <Text>{saved ? '🔖 Saved' : '🔖 Save'} ({post.stats?.saves || 0})</Text>
+              </TouchableOpacity>
+            </View>
+
+            {showPrivacy && (
+              <View style={styles.dropdown}>
+                <Picker
+                  selectedValue={visibility}
+                  onValueChange={(val) => savePrivacy(val)}
+                >
+                  <Picker.Item label="Public" value="public" />
+                  <Picker.Item label="Friends" value="friends" />
+                  <Picker.Item label="Private" value="private" />
+                </Picker>
+              </View>
+            )}
+          </View>
+        }
+        ListFooterComponent={
+          <View style={styles.commentSection}>
+            <View style={styles.commentBox}>
+              <TextInput
+                placeholder="Write a comment..."
+                style={{ flex: 1, paddingHorizontal: 8 }}
+                value={newComment}
+                onChangeText={setNewComment}
+              />
+              <TouchableOpacity onPress={onSend}>
+                <Text style={{ color: '#ff6a3d', fontWeight: '700' }}>Send</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        }
       />
 
-      <View style={styles.commentBox}>
-        <TextInput placeholder="Write a comment..." style={{ flex: 1 }} value={newComment} onChangeText={setNewComment} />
-        <TouchableOpacity onPress={onSend}><Text style={{ color: '#ff6a3d' }}>Send</Text></TouchableOpacity>
-      </View>
-    </ScrollView>
+      <Modal
+        visible={showMenu}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowMenu(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity style={{ flex: 1 }} onPress={() => setShowMenu(false)} />
+
+          <LinearGradient
+            colors={["#F9F87180", "#F28A4780", "#DE5C7680"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.menuSheet}
+          >
+            <TouchableOpacity style={styles.menuItem} onPress={() => {
+              setEditText(post.text);
+              setIsEditing(true);
+              setShowMenu(false);
+            }}>
+              <Feather name="edit-2" size={20} color="#fff" />
+              <Text style={styles.menuText}>Edit Post</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuItem} onPress={() => {
+              setShowPrivacy(true);
+              setShowMenu(false);
+            }}>
+              <Ionicons name="lock-closed-outline" size={20} color="#fff" />
+              <Text style={styles.menuText}>Change Privacy</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.menuItem, { backgroundColor: "rgba(220, 38, 38, 0.66)" }]}
+              onPress={onDelete}
+            >
+              <MaterialIcons name="delete-outline" size={20} color="#fff" />
+              <Text style={[styles.menuText, { color: "#fff" }]}>Delete Post</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuClose} onPress={() => setShowMenu(false)}>
+              <Text style={{ color: "#fff", fontWeight: "600" }}>Cancel</Text>
+            </TouchableOpacity>
+          </LinearGradient>
+        </View>
+      </Modal>
+
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: { flex: 1, padding: 12 },
-  postContainer: { marginBottom: 16, paddingBottom: 12, borderBottomWidth: 1, borderColor: '#eee' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+  headerGradient: { height: 80, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16 },
+  headerTitle: { color: '#fff', fontSize: 18, fontWeight: '700', paddingTop: 18 },
+
+  postCard: { backgroundColor: '#fff', borderRadius: 10, padding: 12, marginBottom: 16, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 5, elevation: 3 },
+  profileRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  profilePic: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#ddd', marginRight: 10 },
   author: { fontWeight: '700', fontSize: 16 },
-  timestamp: { fontSize: 12, color: '#555' },
+  timestamp: { fontSize: 12, color: '#777' },
   text: { marginBottom: 8, fontSize: 15 },
   image: { width: '100%', height: 200, borderRadius: 8, marginBottom: 8 },
-  actions: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 6 },
-  h: { fontWeight: '700', fontSize: 16, marginTop: 12 },
-  cmt: { paddingVertical: 4 },
+  actions: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 8, borderTopWidth: 1, borderColor: '#eee' },
+
+  editBox: { backgroundColor: '#f9f9f9', padding: 8, borderRadius: 6 },
+  input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 6, padding: 6, minHeight: 60, textAlignVertical: 'top' },
+  row: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 8 },
+  btn: { backgroundColor: '#ff6a3d', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 6 },
+
+  dropdown: { borderWidth: 1, borderColor: '#ccc', borderRadius: 6, marginVertical: 8 },
+
+  commentSection: { backgroundColor: '#fff', borderRadius: 10, padding: 8, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
   commentBox: { flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderColor: '#eee', padding: 8 },
+
+  commentCard: { backgroundColor: '#f8f8f8', borderRadius: 8, padding: 8, marginVertical: 4 },
+  cmtAuthor: { fontWeight: '600', marginBottom: 2 },
+  cmtText: { fontSize: 14 },
+  cmtTime: { fontSize: 11, color: '#888' },
+
+  // menu
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
+  menuSheet: {
+    backgroundColor: "rgba(30,30,30,0.95)",
+    padding: 20,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20
+  }, menuItem: { flexDirection: "row", alignItems: "center", backgroundColor: "rgba(255,255,255,0.1)", padding: 12, borderRadius: 12, marginBottom: 10 },
+  menuText: { color: "#fff", fontSize: 16, marginLeft: 10 },
+  menuClose: { marginTop: 10, alignItems: "center" }
 });

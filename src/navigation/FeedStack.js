@@ -14,7 +14,7 @@ export default function FeedStack() {
       {/* Use HomeScreen as main entry */}
       <Stack.Screen name="Feed" component={HomeScreen} options={{ title: 'Home', headerShown: false }}/>
       
-      <Stack.Screen name="PostDetail" component={PostDetailScreen} options={{ title: 'Post' }} />
+      <Stack.Screen name="PostDetail" component={PostDetailScreen} options={{ title: 'Post', headerShown: false }} />
       <Stack.Screen name="Compose" component={ComposeScreen} options={{ title: 'New Post', headerShown: false }} />
       <Stack.Screen name="FloatingMenu" component={FloatingMenu} options={{ title: 'Menu' }} />
       <Stack.Screen name="SettingsScreen" component={SettingsScreen} options={{ title: 'Settings' }} />

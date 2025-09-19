@@ -1,32 +1,42 @@
-import React, { useEffect, useState, useContext } from 'react';
-import { View, FlatList, RefreshControl } from 'react-native';
-import PostCard from '../../components/PostCard';
-import { AuthContext } from '../../state/AuthContext';
-import { collection, doc, getDoc, getDocs, orderBy, query, where } from 'firebase/firestore';
+import React, { useEffect, useState } from 'react';
+import { FlatList, RefreshControl } from 'react-native';
+import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../../services/firebase';
+import PostCard from '../../components/PostCard';
 
 export default function FriendsFeedScreen({ navigation }) {
-  const { user } = useContext(AuthContext);
   const [posts, setPosts] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
 
-  const fetchFeed = async () => {
-    setRefreshing(true);
-    // Simple version: show posts where visibility == 'friends' or author == followed user
-    const q = query(collection(db, 'posts'), where('visibility','in',['friends','public']), orderBy('createdAt','desc'));
-    const snap = await getDocs(q);
-    setPosts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    setRefreshing(false);
+  const load = () => {
+    const q = query(
+      collection(db, 'posts'),
+      where('visibility', 'in', ['friends', 'public']),
+      orderBy('createdAt', 'desc')
+    );
+    return onSnapshot(q, snap => {
+      setPosts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
   };
 
-  useEffect(() => { fetchFeed(); }, []);
+  useEffect(() => {
+    const unsub = load();
+    return unsub;
+  }, []);
 
   return (
     <FlatList
       data={posts}
-      keyExtractor={(i) => i.id}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={fetchFeed} />}
-      renderItem={({ item }) => <PostCard post={item} onPress={() => navigation.navigate('PostDetail', { id: item.id })} />}
+      keyExtractor={item => item.id}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={() => {}} />
+      }
+      renderItem={({ item }) => (
+        <PostCard
+          post={item}
+          onPress={() => navigation.navigate('PostDetail', { id: item.id })}
+        />
+      )}
     />
   );
 }

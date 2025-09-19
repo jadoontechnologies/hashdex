@@ -1,20 +1,45 @@
 import React, { useEffect, useState, useContext } from 'react';
 import { FlatList, RefreshControl } from 'react-native';
+import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../../services/firebase';
-import { collection, getDocs, orderBy, query, where } from 'firebase/firestore';
-import PostCard from '../../components/PostCard';
 import { AuthContext } from '../../state/AuthContext';
+import PostCard from '../../components/PostCard';
 
 export default function PrivateFeedScreen({ navigation }) {
   const { user } = useContext(AuthContext);
-  const [posts, setPosts] = useState([]); const [refreshing, setRefreshing] = useState(false);
-  const load = async () => {
-    setRefreshing(true);
-    const q = query(collection(db,'posts'), where('visibility','==','private'), where('authorId','==', user.uid), orderBy('createdAt','desc'));
-    const snap = await getDocs(q);
-    setPosts(snap.docs.map(d => ({ id:d.id, ...d.data() })));
-    setRefreshing(false);
+  const [posts, setPosts] = useState([]);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const load = () => {
+    const q = query(
+      collection(db, 'posts'),
+      where('visibility', '==', 'private'),
+      where('authorId', '==', user.uid),
+      orderBy('createdAt', 'desc')
+    );
+    return onSnapshot(q, snap => {
+      setPosts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
   };
-  useEffect(()=>{ if(user) load(); },[user]);
-  return <FlatList data={posts} keyExtractor={i=>i.id} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load}/>} renderItem={({item}) => <PostCard post={item} onPress={()=>navigation.navigate('PostDetail',{id:item.id})} />} />;
+
+  useEffect(() => {
+    const unsub = load();
+    return unsub;
+  }, []);
+
+  return (
+    <FlatList
+      data={posts}
+      keyExtractor={item => item.id}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={() => {}} />
+      }
+      renderItem={({ item }) => (
+        <PostCard
+          post={item}
+          onPress={() => navigation.navigate('PostDetail', { id: item.id })}
+        />
+      )}
+    />
+  );
 }
