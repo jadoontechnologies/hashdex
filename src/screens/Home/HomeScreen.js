@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
 
   heroArea: {
-    paddingTop: 55,
+    paddingTop: 50,
     paddingBottom: 10,
     borderBottomLeftRadius: 25,
     borderBottomRightRadius: 25,

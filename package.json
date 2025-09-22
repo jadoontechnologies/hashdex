@@ -31,7 +31,8 @@
     "react-native-screens": "~4.11.1",
     "react-native-swiper": "^1.6.0",
     "react-native-swiper-flatlist": "^3.2.5",
-    "react-navigation": "^5.0.0"
+    "react-navigation": "^5.0.0",
+    "@expo/vector-icons": "^14.1.0"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",

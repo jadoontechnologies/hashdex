@@ -1,4 +1,4 @@
-import React, { createContext, useEffect, useState } from 'react';
+import React, { createContext, useEffect, useState, useContext } from 'react';
 import { auth, db, now } from '../services/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -46,4 +46,9 @@ export function AuthProvider({ children }) {
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+// ✅ Custom hook for consuming auth context
+export function useAuth() {
+  return useContext(AuthContext);
 }

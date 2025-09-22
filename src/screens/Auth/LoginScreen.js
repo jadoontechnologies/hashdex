@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Alert,
-  TextInput as RNTextInput, Image, Pressable, SafeAreaView, StatusBar,
+  TextInput as RNTextInput, Image, Pressable, SafeAreaView, ScrollView,
 } from 'react-native';
 
 import { LinearGradient } from 'expo-linear-gradient';
@@ -26,13 +26,12 @@ export default function LoginScreen({ navigation }) {
   const [pass, setPass] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // --- Google AuthSession (Expo) ---
+  // Google Auth
   const [googleReq, , googlePromptAsync] = Google.useIdTokenAuthRequest({
     clientId: '513308743657-6nrpgufn9i22me8abpql7oq730jn68r6.apps.googleusercontent.com',
   });
-  
 
-  // --- Facebook AuthSession (Expo) ---
+  // Facebook Auth
   const [fbReq, , fbPromptAsync] = Facebook.useAuthRequest({
     clientId: 'YOUR_FACEBOOK_APP_ID',
     responseType: ResponseType.Token,
@@ -57,7 +56,6 @@ export default function LoginScreen({ navigation }) {
         const cred = GoogleAuthProvider.credential(id_token);
         await signInWithCredential(auth, cred);
       }
-
     } catch (e) {
       Alert.alert('Google sign-in failed', e.message);
     } finally { setLoading(false); }
@@ -68,7 +66,6 @@ export default function LoginScreen({ navigation }) {
       setLoading(true);
       const res = await fbPromptAsync({ useProxy: true });
       if (res.type !== 'success') return;
-
       const accessToken = res.params.access_token;
       const cred = FacebookAuthProvider.credential(accessToken);
       await signInWithCredential(auth, cred);
@@ -83,15 +80,16 @@ export default function LoginScreen({ navigation }) {
       start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
       style={{ flex: 1 }}
     >
-     
       <SafeAreaView style={{ flex: 1 }}>
-        <View style={styles.container}>
+        <ScrollView contentContainerStyle={styles.container}>
+
           {/* Logo */}
           <View style={styles.logoWrap}>
-          <Image
-                source={require('../../../assets/images/ic_logo.png')}
-                style={styles.logo}
-              />
+            <Image
+              source={require('../../../assets/images/ic_logo.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
           </View>
 
           {/* Inputs */}
@@ -121,25 +119,25 @@ export default function LoginScreen({ navigation }) {
             <Text style={styles.ctaText}>{loading ? 'Logging in…' : 'Login'}</Text>
           </Pressable>
 
-          {/* Divider */}
-          <View style={styles.orWrap}>
-            <View style={styles.hr} />
-            <Text style={styles.orText}>Or Login with</Text>
-            <View style={styles.hr} />
-          </View>
+          {/* Sign up */}
+          <Text style={styles.bottomText}>
+            Don’t have an account?{' '}
+            <Text style={styles.bottomLink} onPress={() => navigation.navigate('Register')}>
+              Sign up
+            </Text>
+          </Text>
 
-          {/* Social buttons */}
           <View style={styles.socialRow}>
-            {/* <Pressable
+            <Pressable
               disabled={!fbReq}
               onPress={loginWithFacebook}
               style={[styles.circleBtn, !fbReq && { opacity: 0.6 }]}
             >
               <Image
-                source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/1/16/Facebook_icon_2013.svg' }}
-                style={styles.circleLogo}
+                source={require('../../../assets/images/fb.png')}
+                style={styles.fbLogo} // <-- use fbLogo style
               />
-            </Pressable> */}
+            </Pressable>
 
             <Pressable
               disabled={!googleReq}
@@ -148,19 +146,13 @@ export default function LoginScreen({ navigation }) {
             >
               <Image
                 source={require('../../../assets/images/google.png')}
-                style={styles.circleLogo}
+                style={styles.circleLogo} // Google remains the same
               />
             </Pressable>
           </View>
 
-          {/* Sign up */}
-          <Text style={styles.bottomText}>
-            Don’t have an account?{' '}
-            <Text style={styles.bottomLink} onPress={() => navigation.navigate('Register')}>
-              Sign up
-            </Text>
-          </Text>
-        </View>
+
+        </ScrollView>
       </SafeAreaView>
     </LinearGradient>
   );
@@ -183,8 +175,13 @@ function UnderlineInput({ leftIcon, ...props }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingHorizontal: 22, paddingTop: 18 },
-  logoWrap: { alignItems: 'center', marginTop: 12, marginBottom: 24 , width: 360, height: 140,  justifyContent: 'center' },
+  container: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 22,
+    paddingBottom: 0,
+  },
+  logoWrap: { alignItems: 'center', marginBottom: 70 },
   logo: { width: 160, height: 90 },
   inputWrap: { marginTop: 18 },
   inputRow: { flexDirection: 'row', alignItems: 'center' },
@@ -199,15 +196,16 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 6,
   },
   ctaText: { color: '#C84C70', fontWeight: '700', fontSize: 16 },
-  orWrap: { flexDirection: 'row', alignItems: 'center', marginTop: 28 },
-  hr: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255,255,255,0.6)' },
-  orText: { marginHorizontal: 10, color: 'white' },
-  socialRow: { flexDirection: 'row', justifyContent: 'center', gap: 28, marginTop: 18 },
+  bottomText: { textAlign: 'center', color: 'white', marginTop: 18 },
+  bottomLink: { color: 'white', textDecorationLine: 'underline', fontWeight: '600' },
+  socialRow: {
+    flexDirection: 'row', justifyContent: 'center', gap: 28,
+    marginTop: 40,
+  },
   circleBtn: {
     width: 66, height: 66, borderRadius: 33, backgroundColor: 'white',
     alignItems: 'center', justifyContent: 'center',
   },
-  circleLogo: { width: 36, height: 36 },
-  bottomText: { textAlign: 'center', color: 'white', marginTop: 28 },
-  bottomLink: { color: 'white', textDecorationLine: 'underline', fontWeight: '600' },
+  circleLogo: { width: 65, height: 65 }, 
+  fbLogo: { width: 95, height: 95 },     
 });

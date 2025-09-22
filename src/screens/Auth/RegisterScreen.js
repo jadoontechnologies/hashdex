@@ -9,7 +9,6 @@ import {
   Image,
   Pressable,
   SafeAreaView,
-  StatusBar,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
@@ -54,23 +53,30 @@ export default function RegisterScreen({ navigation }) {
 
   return (
     <LinearGradient
-      colors={['#F9F871', '#F28A47', '#DE5C76']} // yellow → orange → pink
+      colors={['#F9F871', '#F28A47', '#DE5C76']}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={{ flex: 1 }}
     >
-     
       <SafeAreaView style={{ flex: 1 }}>
-       
+        {/* Top Header */}
+        <View style={styles.topBar}>
+          <Pressable onPress={() => navigation.goBack()}>
+            <Text style={styles.backArrow}>{'<'}</Text>
+          </Pressable>
+          <Text style={styles.screenTitle}>Sign Up</Text>
+        </View>
+
         {/* Content */}
         <View style={styles.content}>
-          {/* Center logo block (placeholder) */}
+          {/* Logo */}
           <Image
-             source={require('../../../assets/images/ic_logo.png')}
+            source={require('../../../assets/images/ic_logo.png')}
             style={styles.logo}
-            resizeMode="cover"
+            resizeMode="contain"
           />
 
+          {/* Form Inputs */}
           <UnderlineInput placeholder="First Name" value={first} onChangeText={setFirst} />
           <UnderlineInput placeholder="Last Name" value={last} onChangeText={setLast} />
           <UnderlineInput
@@ -83,7 +89,7 @@ export default function RegisterScreen({ navigation }) {
           <UnderlineInput placeholder="Password" value={pass} onChangeText={setPass} secureTextEntry />
           <UnderlineInput placeholder="Confirm Password" value={confirm} onChangeText={setConfirm} secureTextEntry />
 
-          {/* Terms row */}
+          {/* Terms */}
           <Pressable style={styles.termsRow} onPress={() => setAgree(!agree)}>
             <View style={[styles.checkbox, agree && styles.checkboxChecked]} />
             <Text style={styles.termsText}>
@@ -102,7 +108,7 @@ export default function RegisterScreen({ navigation }) {
   );
 }
 
-/* Thin-underlined input to match the mock */
+/* Thin-underlined input */
 function UnderlineInput(props) {
   return (
     <View style={styles.inputWrap}>
@@ -121,12 +127,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 6,
+    paddingVertical: 12,
   },
   backArrow: {
     fontSize: 28,
     color: 'white',
-    width: 24,
+    width: 30,
   },
   screenTitle: {
     flex: 1,
@@ -134,6 +140,7 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 18,
     fontWeight: '600',
+    paddingTop: 24,
   },
   content: {
     flex: 1,
@@ -141,15 +148,14 @@ const styles = StyleSheet.create({
     paddingTop: 18,
   },
   logo: {
-    width: 120,
-    height: 68,
+    width: 140,
+    height: 80,
     alignSelf: 'center',
-    marginVertical: 12,
-
-    
+    marginVertical: 20,
+    marginLeft: 30,
   },
   inputWrap: {
-    marginTop: 22,
+    marginTop: 18,
   },
   input: {
     color: 'white',
@@ -192,8 +198,8 @@ const styles = StyleSheet.create({
   cta: {
     marginTop: 28,
     backgroundColor: 'white',
-    borderRadius: 12,
-    paddingVertical: 16,
+    borderRadius: 10,
+    paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
@@ -202,7 +208,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   ctaText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     color: '#DE5C76',
   },

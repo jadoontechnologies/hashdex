@@ -11,7 +11,7 @@ import { Ionicons, Feather, MaterialIcons } from '@expo/vector-icons';
 // relative time formatter
 function getRelativeTime(date) {
   if (!date) return '';
-  const diff = Math.floor((Date.now() - date.getTime()) / 1000); // seconds
+  const diff = Math.floor((Date.now() - date.getTime()) / 1000);
   if (diff < 60) return `${diff} sec ago`;
   if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)} hrs ago`;
@@ -29,13 +29,10 @@ export default function PostDetailScreen({ route, navigation }) {
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  // edit/visibility states
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState('');
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [visibility, setVisibility] = useState('public');
-
-  // post menu bottom sheet
   const [showMenu, setShowMenu] = useState(false);
 
   useEffect(() => {
@@ -48,16 +45,24 @@ export default function PostDetailScreen({ route, navigation }) {
         setVisibility(data.visibility || 'public');
       }
     });
+
     const unsubComments = onSnapshot(
       query(collection(db, 'posts', id, 'comments'), orderBy('createdAt', 'asc')),
       snap => setComments(snap.docs.map(d => ({ id: d.id, ...d.data() })))
     );
+
     return () => { unsubPost(); unsubComments(); };
   }, [id]);
 
   const onSend = async () => {
     if (!newComment.trim()) return;
-    await addComment(id, user, newComment.trim());
+
+    await addComment(id, {
+      id: user.uid,
+      displayName: user.displayName || "User",
+      photoURL: user.photoURL || null
+    }, newComment.trim());
+
     setNewComment('');
   };
 
@@ -111,7 +116,7 @@ export default function PostDetailScreen({ route, navigation }) {
     return (
       <View style={styles.commentCard}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-          <Text style={styles.cmtAuthor}>{item.author?.displayName}</Text>
+          <Text style={styles.cmtAuthor}>{item.author?.displayName || "User"}</Text>
           <Text style={styles.cmtTime}>{relativeTime}</Text>
         </View>
         <Text style={styles.cmtText}>{item.text}</Text>
@@ -134,11 +139,11 @@ export default function PostDetailScreen({ route, navigation }) {
         style={styles.headerGradient}
       >
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#fff" paddingTop={18} />
+          <Ionicons name="arrow-back" size={24} color="#fff" style={{ paddingTop: 18 }} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Post Detail</Text>
         <TouchableOpacity onPress={() => setShowMenu(true)}>
-          <Ionicons name="ellipsis-vertical" size={22} color="#fff" paddingTop={18} />
+          <Ionicons name="ellipsis-vertical" size={22} color="#fff" style={{ paddingTop: 18 }} />
         </TouchableOpacity>
       </LinearGradient>
 
@@ -149,11 +154,13 @@ export default function PostDetailScreen({ route, navigation }) {
         renderItem={renderComment}
         ListHeaderComponent={
           <View style={styles.postCard}>
-            {/* profile row */}
             <View style={styles.profileRow}>
-              <View style={styles.profilePic} />
+              <Image
+                source={{ uri: post.author?.photoURL || "https://placekitten.com/80/80" }}
+                style={styles.profilePic}
+              />
               <View style={{ flex: 1 }}>
-                <Text style={styles.author}>{post.author.displayName}</Text>
+                <Text style={styles.author}>{post.author?.displayName || "User"}</Text>
                 <Text style={styles.timestamp}>{relativeTime}</Text>
               </View>
             </View>
@@ -179,20 +186,20 @@ export default function PostDetailScreen({ route, navigation }) {
               <Text style={styles.text}>{post.text}</Text>
             )}
 
-            {post.attachments?.map((uri, i) => (
-              <Image key={i} source={{ uri }} style={styles.image} />
-            ))}
+            {post.image && (
+              <Image source={{ uri: post.image }} style={styles.image} />
+            )}
 
             {/* actions */}
             <View style={styles.actions}>
               <TouchableOpacity onPress={onLike}>
-                <Text>{liked ? '❤️ Unlike' : '🤍 Like'} ({post.stats?.likes || 0})</Text>
+                <Text>{liked ? '❤️ Unlike' : '🤍 Like'} ({post.likes || 0})</Text>
               </TouchableOpacity>
               <TouchableOpacity>
                 <Text>💬 Comment ({comments.length})</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={onSave}>
-                <Text>{saved ? '🔖 Saved' : '🔖 Save'} ({post.stats?.saves || 0})</Text>
+                <Text>{saved ? '🔖 Saved' : '🔖 Save'} ({post.saves || 0})</Text>
               </TouchableOpacity>
             </View>
 
@@ -227,6 +234,7 @@ export default function PostDetailScreen({ route, navigation }) {
         }
       />
 
+      {/* menu modal */}
       <Modal
         visible={showMenu}
         animationType="slide"
@@ -273,7 +281,6 @@ export default function PostDetailScreen({ route, navigation }) {
           </LinearGradient>
         </View>
       </Modal>
-
     </View>
   );
 }
@@ -285,7 +292,7 @@ const styles = StyleSheet.create({
 
   postCard: { backgroundColor: '#fff', borderRadius: 10, padding: 12, marginBottom: 16, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 5, elevation: 3 },
   profileRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  profilePic: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#ddd', marginRight: 10 },
+  profilePic: { width: 40, height: 40, borderRadius: 20, marginRight: 10, backgroundColor: "#ddd" },
   author: { fontWeight: '700', fontSize: 16 },
   timestamp: { fontSize: 12, color: '#777' },
   text: { marginBottom: 8, fontSize: 15 },
@@ -307,14 +314,9 @@ const styles = StyleSheet.create({
   cmtText: { fontSize: 14 },
   cmtTime: { fontSize: 11, color: '#888' },
 
-  // menu
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
-  menuSheet: {
-    backgroundColor: "rgba(30,30,30,0.95)",
-    padding: 20,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20
-  }, menuItem: { flexDirection: "row", alignItems: "center", backgroundColor: "rgba(255,255,255,0.1)", padding: 12, borderRadius: 12, marginBottom: 10 },
+  menuSheet: { backgroundColor: "rgba(30,30,30,0.95)", padding: 20, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
+  menuItem: { flexDirection: "row", alignItems: "center", backgroundColor: "rgba(255,255,255,0.1)", padding: 12, borderRadius: 12, marginBottom: 10 },
   menuText: { color: "#fff", fontSize: 16, marginLeft: 10 },
   menuClose: { marginTop: 10, alignItems: "center" }
 });
