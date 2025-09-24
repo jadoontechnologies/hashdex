@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useContext } from 'react';
 import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, Image, Alert, Modal } from 'react-native';
 import { db } from '../../services/firebase';
-import { doc, collection, onSnapshot, query, orderBy, deleteDoc, updateDoc } from 'firebase/firestore';
+import { doc, collection, onSnapshot, query, orderBy, deleteDoc, updateDoc, where, getDocs } from 'firebase/firestore';
 import { AuthContext } from '../../state/AuthContext';
 import { addComment, toggleLike, toggleSave } from '../../services/interactions';
 import { Picker } from '@react-native-picker/picker';
@@ -31,7 +31,6 @@ export default function PostDetailScreen({ route, navigation }) {
 
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState('');
-  const [showPrivacy, setShowPrivacy] = useState(false);
   const [visibility, setVisibility] = useState('public');
   const [showMenu, setShowMenu] = useState(false);
 
@@ -93,21 +92,29 @@ export default function PostDetailScreen({ route, navigation }) {
 
   const saveEdit = async () => {
     if (editText.trim()) {
-      await updateDoc(doc(db, 'posts', id), {
+      const updatedPayload = {
         text: editText.trim(),
-        updatedAt: new Date()
-      });
+        visibility,
+        updatedAt: new Date(),
+      };
+
+      // 1️⃣ Update main post
+      await updateDoc(doc(db, "posts", id), updatedPayload);
+
+      // 2️⃣ Update any collection items referencing this post
+      const collectionsSnap = await getDocs(collection(db, "collections"));
+      for (const colSnap of collectionsSnap.docs) {
+        const itemsRef = collection(db, "collections", colSnap.id, "items");
+        const itemQ = query(itemsRef, where("postId", "==", id));
+        const itemSnap = await getDocs(itemQ);
+
+        itemSnap.forEach(async (itemDoc) => {
+          await updateDoc(itemDoc.ref, updatedPayload);
+        });
+      }
+
       setIsEditing(false);
     }
-  };
-
-  const savePrivacy = async (newVis) => {
-    setVisibility(newVis);
-    await updateDoc(doc(db, 'posts', id), {
-      visibility: newVis,
-      updatedAt: new Date()
-    });
-    setShowPrivacy(false);
   };
 
   const renderComment = ({ item }) => {
@@ -138,10 +145,20 @@ export default function PostDetailScreen({ route, navigation }) {
         end={{ x: 1, y: 0 }}
         style={styles.headerGradient}
       >
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity
+          onPress={() => {
+            if (isEditing) {
+              setIsEditing(false);
+            } else {
+              navigation.goBack();
+            }
+          }}
+        >
           <Ionicons name="arrow-back" size={24} color="#fff" style={{ paddingTop: 18 }} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Post Detail</Text>
+
+        {/* 🔥 Header now changes dynamically */}
+        <Text style={styles.headerTitle}>{isEditing ? "Edit Post" : "Post Detail"}</Text>
         <TouchableOpacity onPress={() => setShowMenu(true)}>
           <Ionicons name="ellipsis-vertical" size={22} color="#fff" style={{ paddingTop: 18 }} />
         </TouchableOpacity>
@@ -149,7 +166,7 @@ export default function PostDetailScreen({ route, navigation }) {
 
       <FlatList
         style={styles.wrap}
-        data={comments}
+        data={isEditing ? [] : comments} // hide comments when editing
         keyExtractor={i => i.id}
         renderItem={renderComment}
         ListHeaderComponent={
@@ -164,6 +181,9 @@ export default function PostDetailScreen({ route, navigation }) {
                 <Text style={styles.timestamp}>{relativeTime}</Text>
               </View>
             </View>
+            <Text style={styles.privacyLabel}>
+              Privacy: {post.visibility || "public"}
+            </Text>
 
             {isEditing ? (
               <View style={styles.editBox}>
@@ -173,6 +193,17 @@ export default function PostDetailScreen({ route, navigation }) {
                   onChangeText={setEditText}
                   multiline
                 />
+                {/* privacy inside edit */}
+                <View style={styles.dropdown}>
+                  <Picker
+                    selectedValue={visibility}
+                    onValueChange={(val) => setVisibility(val)}
+                  >
+                    <Picker.Item label="Public" value="public" />
+                    <Picker.Item label="Friends" value="friends" />
+                    <Picker.Item label="Private" value="private" />
+                  </Picker>
+                </View>
                 <View style={styles.row}>
                   <TouchableOpacity onPress={saveEdit} style={styles.btn}>
                     <Text style={{ color: '#fff' }}>Save</Text>
@@ -190,47 +221,38 @@ export default function PostDetailScreen({ route, navigation }) {
               <Image source={{ uri: post.image }} style={styles.image} />
             )}
 
-            {/* actions */}
-            <View style={styles.actions}>
-              <TouchableOpacity onPress={onLike}>
-                <Text>{liked ? '❤️ Unlike' : '🤍 Like'} ({post.likes || 0})</Text>
-              </TouchableOpacity>
-              <TouchableOpacity>
-                <Text>💬 Comment ({comments.length})</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={onSave}>
-                <Text>{saved ? '🔖 Saved' : '🔖 Save'} ({post.saves || 0})</Text>
-              </TouchableOpacity>
-            </View>
-
-            {showPrivacy && (
-              <View style={styles.dropdown}>
-                <Picker
-                  selectedValue={visibility}
-                  onValueChange={(val) => savePrivacy(val)}
-                >
-                  <Picker.Item label="Public" value="public" />
-                  <Picker.Item label="Friends" value="friends" />
-                  <Picker.Item label="Private" value="private" />
-                </Picker>
+            {/* actions - hidden in edit mode */}
+            {!isEditing && (
+              <View style={styles.actions}>
+                <TouchableOpacity onPress={onLike}>
+                  <Text>{liked ? '❤️ Unlike' : '🤍 Like'} ({post.likes || 0})</Text>
+                </TouchableOpacity>
+                <TouchableOpacity>
+                  <Text>💬 Comment ({comments.length})</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={onSave}>
+                  <Text>{saved ? '🔖 Saved' : '🔖 Save'} ({post.saves || 0})</Text>
+                </TouchableOpacity>
               </View>
             )}
           </View>
         }
         ListFooterComponent={
-          <View style={styles.commentSection}>
-            <View style={styles.commentBox}>
-              <TextInput
-                placeholder="Write a comment..."
-                style={{ flex: 1, paddingHorizontal: 8 }}
-                value={newComment}
-                onChangeText={setNewComment}
-              />
-              <TouchableOpacity onPress={onSend}>
-                <Text style={{ color: '#ff6a3d', fontWeight: '700' }}>Send</Text>
-              </TouchableOpacity>
+          !isEditing && (
+            <View style={styles.commentSection}>
+              <View style={styles.commentBox}>
+                <TextInput
+                  placeholder="Write a comment..."
+                  style={{ flex: 1, paddingHorizontal: 8 }}
+                  value={newComment}
+                  onChangeText={setNewComment}
+                />
+                <TouchableOpacity onPress={onSend}>
+                  <Text style={{ color: '#ff6a3d', fontWeight: '700' }}>Send</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
+          )
         }
       />
 
@@ -250,30 +272,26 @@ export default function PostDetailScreen({ route, navigation }) {
             end={{ x: 1, y: 1 }}
             style={styles.menuSheet}
           >
-            <TouchableOpacity style={styles.menuItem} onPress={() => {
-              setEditText(post.text);
-              setIsEditing(true);
-              setShowMenu(false);
-            }}>
-              <Feather name="edit-2" size={20} color="#fff" />
-              <Text style={styles.menuText}>Edit Post</Text>
-            </TouchableOpacity>
+            {post.author?.id === user.uid && (
+              <>
+                <TouchableOpacity style={styles.menuItem} onPress={() => {
+                  setEditText(post.text);
+                  setIsEditing(true);
+                  setShowMenu(false);
+                }}>
+                  <Feather name="edit-2" size={20} color="#fff" />
+                  <Text style={styles.menuText}>Edit Post</Text>
+                </TouchableOpacity>
 
-            <TouchableOpacity style={styles.menuItem} onPress={() => {
-              setShowPrivacy(true);
-              setShowMenu(false);
-            }}>
-              <Ionicons name="lock-closed-outline" size={20} color="#fff" />
-              <Text style={styles.menuText}>Change Privacy</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.menuItem, { backgroundColor: "rgba(220, 38, 38, 0.66)" }]}
-              onPress={onDelete}
-            >
-              <MaterialIcons name="delete-outline" size={20} color="#fff" />
-              <Text style={[styles.menuText, { color: "#fff" }]}>Delete Post</Text>
-            </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.menuItem, { backgroundColor: "rgba(220, 38, 38, 0.66)" }]}
+                  onPress={onDelete}
+                >
+                  <MaterialIcons name="delete-outline" size={20} color="#fff" />
+                  <Text style={[styles.menuText, { color: "#fff" }]}>Delete Post</Text>
+                </TouchableOpacity>
+              </>
+            )}
 
             <TouchableOpacity style={styles.menuClose} onPress={() => setShowMenu(false)}>
               <Text style={{ color: "#fff", fontWeight: "600" }}>Cancel</Text>
@@ -318,5 +336,7 @@ const styles = StyleSheet.create({
   menuSheet: { backgroundColor: "rgba(30,30,30,0.95)", padding: 20, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
   menuItem: { flexDirection: "row", alignItems: "center", backgroundColor: "rgba(255,255,255,0.1)", padding: 12, borderRadius: 12, marginBottom: 10 },
   menuText: { color: "#fff", fontSize: 16, marginLeft: 10 },
-  menuClose: { marginTop: 10, alignItems: "center" }
+  menuClose: { marginTop: 10, alignItems: "center" },
+  privacyLabel: { fontSize: 12, color: "#555", marginTop: 2 },
 });
+

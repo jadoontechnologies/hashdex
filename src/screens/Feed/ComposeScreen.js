@@ -1,9 +1,9 @@
-// ComposeScreen.js
+// src/screens/ComposeScreen.js
 import React, { useState } from "react";
 import {
   View,
   Text,
-  TextInput,
+  TextInput as RNTextInput,
   TouchableOpacity,
   Image,
   StyleSheet,
@@ -12,10 +12,23 @@ import {
   ActivityIndicator,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import { LinearGradient } from "expo-linear-gradient";
 import { db, storage, now } from "../../services/firebase";
-import { addDoc, collection, serverTimestamp as timestamp, updateDoc, increment, query, where, getDocs } from "firebase/firestore";
+import {
+  addDoc,
+  collection,
+  updateDoc,
+  increment,
+  query,
+  where,
+  getDocs,
+  doc,
+  setDoc,
+  arrayUnion,
+} from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useAuth } from "../../state/AuthContext";
+import { trackHashtags } from "../../services/hashtags";
 
 export default function ComposeScreen({ navigation }) {
   const { user, profile, loading: authLoading } = useAuth();
@@ -24,7 +37,7 @@ export default function ComposeScreen({ navigation }) {
   const [image, setImage] = useState(null);
   const [hashtags, setHashtags] = useState("");
   const [collectionName, setCollectionName] = useState("");
-  const [visibility, setVisibility] = useState("public"); // public | private | friends
+  const [visibility, setVisibility] = useState("public");
   const [loading, setLoading] = useState(false);
 
   // Pick Image
@@ -59,7 +72,6 @@ export default function ComposeScreen({ navigation }) {
       Alert.alert("⚠️ Profile not loaded yet.");
       return;
     }
-
     if (!text.trim() && !image) {
       Alert.alert("⚠️ Error", "Please write something or add an image.");
       return;
@@ -71,61 +83,86 @@ export default function ComposeScreen({ navigation }) {
       if (image) {
         imageUrl = await uploadImageAsync(image);
       }
+
+      // Extract hashtags → regex instead of comma split
+      const extractedTags = Array.from(
+        new Set(
+          [
+            ...text.matchAll(/#(\w+)/g),
+            ...(hashtags ? hashtags.split(",").map((t) => [t.trim().replace("#", "")]) : []),
+          ].map((m) => m[1] || m[0])
+        )
+      );
+
       const payload = {
         text,
         image: imageUrl,
-        hashtags: hashtags
-          ? hashtags.split(",").map((t) => t.trim())
-          : [],
+        hashtags: extractedTags,
         visibility,
         createdAt: now(),
         updatedAt: now(),
         author: {
           id: user?.uid || "guest",
-          displayName: profile.displayName?.trim() || (user?.email?.split("@")[0] ?? "User"),
+          displayName:
+            profile.displayName?.trim() ||
+            (user?.email?.split("@")[0] ?? "User"),
           photoURL: profile.photoURL || user?.photoURL || null,
         },
+        authorId: user?.uid || "guest",
         likes: 0,
         saves: 0,
         comments: 0,
       };
 
-
-      // Save post in main "posts" collection
+      // Save post in "posts"
       const postRef = await addDoc(collection(db, "posts"), payload);
 
-      // Save to collection if name provided
+      // 🔹 Track hashtags globally
+      if (extractedTags.length) {
+        await trackHashtags(extractedTags);
+
+        // 🔹 Index post IDs under each hashtag (fast retrieval)
+        for (const tag of extractedTags) {
+          const tagRef = doc(db, "hashtags", tag.toLowerCase());
+          await setDoc(
+            tagRef,
+            {
+              posts: {
+                [visibility]: arrayUnion(postRef.id),
+              },
+              updatedAt: now(),
+            },
+            { merge: true }
+          );
+        }
+      }
+
+      // 🔹 Save to collection if name provided
       if (collectionName) {
         const q = query(
           collection(db, "collections"),
-          where("title", "==", collectionName)
+          where("title", "==", collectionName.trim().toLowerCase())
         );
         const snap = await getDocs(q);
 
         if (!snap.empty) {
           const collectionRef = snap.docs[0].ref;
-
           await addDoc(
             collection(db, "collections", collectionRef.id, "items"),
-            {
-              ...payload,
-              postId: postRef.id,
-            }
+            { ...payload, postId: postRef.id }
           );
-
           await updateDoc(collectionRef, {
             "stats.items": increment(1),
             updatedAt: now(),
           });
-
           Alert.alert(
             "✅ Success",
-            `Your post was added to the "${collectionName}" collection.`
+            `Your post was added to "${collectionName}"`
           );
         } else {
           Alert.alert(
             "⚠️ Collection not found",
-            "The collection name you entered does not exist."
+            "This collection does not exist."
           );
         }
       } else {
@@ -147,7 +184,6 @@ export default function ComposeScreen({ navigation }) {
     }
   };
 
-  // Show loader until profile is ready
   if (authLoading || !profile) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
@@ -158,113 +194,152 @@ export default function ComposeScreen({ navigation }) {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.heading}>✍️ Create a Post</Text>
-
-      <TextInput
-        style={styles.input}
-        placeholder="What's on your mind?"
-        value={text}
-        onChangeText={setText}
-        multiline
-      />
-
-      <TouchableOpacity style={styles.imageButton} onPress={pickImage}>
-        <Text style={styles.imageButtonText}>📸 Pick an Image</Text>
-      </TouchableOpacity>
-
-      {image && <Image source={{ uri: image }} style={styles.image} />}
-
-      <TextInput
-        style={styles.input}
-        placeholder="Add hashtags (comma separated)"
-        value={hashtags}
-        onChangeText={setHashtags}
-      />
-
-      <TextInput
-        style={styles.input}
-        placeholder="Enter collection name (optional)"
-        value={collectionName}
-        onChangeText={setCollectionName}
-      />
-
-      <View style={styles.visibilityRow}>
-        {["public", "friends", "private"].map((opt) => (
-          <TouchableOpacity
-            key={opt}
-            style={[
-              styles.visibilityButton,
-              visibility === opt && styles.activeVisibility,
-            ]}
-            onPress={() => setVisibility(opt)}
-          >
-            <Text
-              style={[
-                styles.visibilityText,
-                visibility === opt && styles.activeVisibilityText,
-              ]}
-            >
-              {opt.toUpperCase()}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      <TouchableOpacity
-        style={styles.postButton}
-        onPress={submitPost}
-        disabled={loading}
+    <View style={{ flex: 1, backgroundColor: "#f5f5f5" }}>
+      {/* Header */}
+      <LinearGradient
+        colors={["#F9F871", "#F28A47", "#DE5C76"]}
+        start={{ x: 0, y: 1 }}
+        end={{ x: 0, y: 0 }}
+        style={styles.header}
       >
-        {loading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.postButtonText}>🚀 Post</Text>
-        )}
-      </TouchableOpacity>
-    </ScrollView>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.backText}>{"<"}</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Create Post</Text>
+      </LinearGradient>
+
+      <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
+        {/* Card */}
+        <View style={styles.card}>
+          <RNTextInput
+            style={[styles.input, { height: 100 }]}
+            placeholder="What's on your mind?"
+            value={text}
+            onChangeText={setText}
+            multiline
+          />
+
+          <TouchableOpacity style={styles.coverBox} onPress={pickImage}>
+            {image ? (
+              <Image source={{ uri: image }} style={styles.coverImage} />
+            ) : (
+              <Text style={styles.addCoverText}>＋ Add Image</Text>
+            )}
+          </TouchableOpacity>
+
+          <RNTextInput
+            style={styles.input}
+            placeholder="# Add hashtags (comma separated)"
+            value={hashtags}
+            onChangeText={setHashtags}
+          />
+
+          <RNTextInput
+            style={styles.input}
+            placeholder="Enter collection name (optional)"
+            value={collectionName}
+            onChangeText={setCollectionName}
+          />
+
+          {/* Visibility */}
+          <View style={styles.visibilityRow}>
+            {["public", "friends", "private"].map((opt) => (
+              <TouchableOpacity
+                key={opt}
+                style={[
+                  styles.visibilityBtn,
+                  visibility === opt && styles.selectedVisibility,
+                ]}
+                onPress={() => setVisibility(opt)}
+              >
+                <Text
+                  style={{
+                    color: visibility === opt ? "#fff" : "#333",
+                    fontWeight: "600",
+                  }}
+                >
+                  {opt.toUpperCase()}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.saveButtonContainer}>
+          <TouchableOpacity
+            style={styles.postButton}
+            onPress={submitPost}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.postButtonText}>🚀 Publish Post</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 16, backgroundColor: "#f8f9fa", flexGrow: 1 },
-  heading: { fontSize: 22, fontWeight: "bold", marginBottom: 12 },
+  header: {
+    height: 80,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+    paddingTop: 14,
+  },
+  backBtn: { position: "absolute", left: 16, top: 30 },
+  backText: { fontSize: 28, color: "#fff", fontWeight: "700" },
+  headerTitle: { fontSize: 22, fontWeight: "700", color: "#fff", paddingTop: 8 },
+  card: {
+    backgroundColor: "#fff",
+    padding: 16,
+    margin: 16,
+    borderRadius: 12,
+  },
   input: {
     borderWidth: 1,
-    borderColor: "#ddd",
+    borderColor: "#ccc",
     borderRadius: 8,
     padding: 10,
     marginBottom: 12,
-    backgroundColor: "#fff",
+    fontSize: 16,
+    backgroundColor: "#f7f7f7",
   },
-  imageButton: {
-    backgroundColor: "#6c63ff",
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 12,
+  coverBox: {
+    width: "100%",
+    height: 180,
+    backgroundColor: "#eee",
+    borderRadius: 12,
     alignItems: "center",
-  },
-  imageButtonText: { color: "#fff", fontWeight: "bold" },
-  image: { width: "100%", height: 200, borderRadius: 10, marginBottom: 12 },
-  visibilityRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "center",
     marginBottom: 16,
   },
-  visibilityButton: {
-    flex: 1,
-    padding: 10,
-    marginHorizontal: 5,
-    borderWidth: 1,
-    borderColor: "#6c63ff",
-    borderRadius: 8,
-    alignItems: "center",
+  coverImage: { width: "100%", height: "100%", borderRadius: 12 },
+  addCoverText: { fontSize: 18, color: "#888" },
+  visibilityRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginVertical: 10,
   },
-  activeVisibility: { backgroundColor: "#6c63ff" },
-  visibilityText: { color: "#6c63ff", fontWeight: "bold" },
-  activeVisibilityText: { color: "#fff" },
+  visibilityBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#888",
+  },
+  selectedVisibility: { backgroundColor: "#ff6a3d" },
+  saveButtonContainer: { marginTop: 20, paddingHorizontal: 16 },
   postButton: {
-    backgroundColor: "#28a745",
+    backgroundColor: "#ff6a3d",
     padding: 14,
     borderRadius: 8,
     alignItems: "center",

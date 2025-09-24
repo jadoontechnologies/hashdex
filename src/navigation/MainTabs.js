@@ -10,7 +10,7 @@ import ProfileStack from './ProfileStack';
 // Direct screens (not in stack)
 import SearchScreen from '../screens/Search/SearchScreen';
 import NotificationsScreen from '../screens/Notifications/NotificationsScreen';
-import HashtageScreen from '../screens/Hashtage/HashtageScreen';
+import HashtageScreen from '../screens/Hashtag/HashtagScreen';
 import ChatScreen from '../screens/Chat/ChatScreen';
 
 const Tab = createBottomTabNavigator();

@@ -10,29 +10,30 @@ export default function PrivateFeedScreen({ navigation }) {
   const [posts, setPosts] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
 
-  const load = () => {
+  useEffect(() => {
+    if (!user) return;
+
     const q = query(
-      collection(db, 'posts'),
-      where('visibility', '==', 'private'),
-      where('authorId', '==', user.uid),
-      orderBy('createdAt', 'desc')
+      collection(db, "posts"),
+      where("visibility", "==", "private"),
+      where("authorId", "==", user.uid), 
+      orderBy("createdAt", "desc")
     );
-    return onSnapshot(q, snap => {
+
+
+    const unsub = onSnapshot(q, snap => {
       setPosts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
-  };
 
-  useEffect(() => {
-    const unsub = load();
     return unsub;
-  }, []);
+  }, [user]);
 
   return (
     <FlatList
       data={posts}
       keyExtractor={item => item.id}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={() => {}} />
+        <RefreshControl refreshing={refreshing} onRefresh={() => { }} />
       }
       renderItem={({ item }) => (
         <PostCard

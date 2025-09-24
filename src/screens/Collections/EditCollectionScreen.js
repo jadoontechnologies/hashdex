@@ -48,7 +48,17 @@ export default function EditCollectionScreen({ route, navigation }) {
           setCover(data.cover?.url || null);
         }
         const itemsSnap = await getDocs(collection(db, 'collections', id, 'items'));
-        setItems(itemsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+        const loadedItems = itemsSnap.docs.map(d => {
+          const itemData = d.data();
+          return {
+            id: d.id,
+            type: itemData.type || 'text',
+            url: itemData.url || '',
+            text: itemData.text || '',
+            ...itemData,
+          };
+        });
+        setItems(loadedItems);
       } catch (err) {
         Alert.alert('Error', 'Failed to load collection data');
       } finally {
@@ -87,13 +97,23 @@ export default function EditCollectionScreen({ route, navigation }) {
 
   const reloadItems = async () => {
     const itemsSnap = await getDocs(collection(db, 'collections', id, 'items'));
-    setItems(itemsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+    const loadedItems = itemsSnap.docs.map(d => {
+      const itemData = d.data();
+      return {
+        id: d.id,
+        type: itemData.type || 'text',
+        url: itemData.url || '',
+        text: itemData.text || '',
+        ...itemData,
+      };
+    });
+    setItems(loadedItems);
     flatListRef.current?.scrollToEnd({ animated: true });
   };
 
   const editItem = (item) => {
     setEditItemData(item);
-    setEditText(item.url || item.text);
+    setEditText(item.url || item.text || '');
     setShowEditModal(true);
   };
 
@@ -184,8 +204,8 @@ export default function EditCollectionScreen({ route, navigation }) {
         renderItem={({ item }) => (
           <View style={styles.item}>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontWeight: '600', color: theme.text }}>{item.type.toUpperCase()}</Text>
-              <Text style={{ color: theme.muted }}>{item.url || item.text}</Text>
+              <Text style={{ fontWeight: '600', color: theme.text }}>{(item.type || 'text').toUpperCase()}</Text>
+              <Text style={{ color: theme.muted }}>{item.url || item.text || ''}</Text>
             </View>
             <View style={styles.itemButtons}>
               <TouchableOpacity onPress={() => editItem(item)} style={styles.iconButton}>
@@ -210,7 +230,7 @@ export default function EditCollectionScreen({ route, navigation }) {
         <View style={styles.modalOverlay}>
           <View style={styles.modal}>
             <Text style={{ fontWeight: '600', marginBottom: 10, color: theme.text }}>
-              Edit {editItemData?.type}
+              Edit {editItemData?.type || 'text'}
             </Text>
             <RNTextInput
               value={editText}
