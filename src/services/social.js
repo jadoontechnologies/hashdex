@@ -1,16 +1,46 @@
-import { db, now } from './firebase';
-import { doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { db } from "./firebase";
+import { doc, setDoc, deleteDoc } from "firebase/firestore";
 
-export async function follow(userId, targetId) {
-  await setDoc(doc(db,'follows',userId,'following',targetId), { createdAt: now() });
-  await setDoc(doc(db,'follows',targetId,'followers',userId), { createdAt: now() });
+/**
+ * Follow another user
+ */
+export async function follow(userId, targetId, userProfile = {}, targetProfile = {}) {
+  const followingRef = doc(db, "users", userId, "following", targetId);
+  const followerRef = doc(db, "users", targetId, "followers", userId);
+
+  await setDoc(followingRef, {
+    name: targetProfile.displayName || targetProfile.username || "User",
+    photoURL: targetProfile.photoURL || null,
+    createdAt: Date.now(),
+  });
+
+  await setDoc(followerRef, {
+    name: userProfile.displayName || userProfile.username || "User",
+    photoURL: userProfile.photoURL || null,
+    createdAt: Date.now(),
+  });
 }
 
+/**
+ * Unfollow another user
+ */
 export async function unfollow(userId, targetId) {
-  await deleteDoc(doc(db,'follows',userId,'following',targetId));
-  await deleteDoc(doc(db,'follows',targetId,'followers',userId));
+  const followingRef = doc(db, "users", userId, "following", targetId);
+  const followerRef = doc(db, "users", targetId, "followers", userId);
+
+  await deleteDoc(followingRef);
+  await deleteDoc(followerRef);
 }
 
+/**
+ * Send friend request (optional, if you want "friends")
+ */
 export async function addFriend(userId, targetId) {
-  await setDoc(doc(db,'friends',userId,targetId), { status:'pending', initiatorId:userId, createdAt:now(), updatedAt:now() });
+  const friendRef = doc(db, "users", userId, "friends", targetId);
+  await setDoc(friendRef, {
+    status: "pending",
+    initiatorId: userId,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  });
 }

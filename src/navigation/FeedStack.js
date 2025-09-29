@@ -11,9 +11,8 @@ const Stack = createNativeStackNavigator();
 export default function FeedStack() {
   return (
     <Stack.Navigator>
-      {/* Use HomeScreen as main entry */}
       <Stack.Screen name="Feed" component={HomeScreen} options={{ title: 'Home', headerShown: false }}/>
-      
+    
       <Stack.Screen name="PostDetail" component={PostDetailScreen} options={{ title: 'Post', headerShown: false }} />
       <Stack.Screen name="Compose" component={ComposeScreen} options={{ title: 'New Post', headerShown: false }} />
       <Stack.Screen name="FloatingMenu" component={FloatingMenu} options={{ title: 'Menu' }} />

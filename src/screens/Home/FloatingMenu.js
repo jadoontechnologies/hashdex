@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, TouchableOpacity, Text, StyleSheet, Animated } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Animated } from 'react-native';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 export default function FloatingMenu({ navigation }) {
   const [open, setOpen] = useState(false);
@@ -9,31 +10,32 @@ export default function FloatingMenu({ navigation }) {
     Animated.spring(animation, {
       toValue: open ? 0 : 1,
       friction: 5,
-      useNativeDriver: true
+      useNativeDriver: true,
     }).start();
     setOpen(!open);
   };
 
   const icons = [
     {
-      icon: '⚙️',
-      action: () => navigation.navigate('SettingsScreen')
+      name: 'cog',
+      action: () => navigation.navigate('SettingsScreen'),
     },
     {
-      icon: '👤',
-      action: () => navigation.navigate('ProfileTab', { screen: 'Profile' })
+      name: 'account',
+      action: () => navigation.navigate('ProfileTab', { screen: 'Profile' }),
     },
     {
-      icon: '🔔',
-      action: () => navigation.navigate('Alerts')
+      name: 'account-multiple',
+      action: () => navigation.navigate('ProfileTab', { screen: 'Friends' }),
     },
     {
-      icon: '📁',
-      action: () => navigation.navigate('CollectionsTab', { screen: 'Collections' })
+      name: 'folder',
+      action: () =>
+        navigation.navigate('CollectionsTab', { screen: 'Collections' }),
     },
     {
-      icon: '✍️',
-      action: () => navigation.navigate('Compose')
+      name: 'pencil',
+      action: () => navigation.navigate('Compose'),
     },
   ];
 
@@ -41,7 +43,7 @@ export default function FloatingMenu({ navigation }) {
   const angleStep = 90 / (icons.length - 1);
 
   const getButtonStyle = (index) => {
-    const angle = (angleStep * index) * (Math.PI / 180);
+    const angle = angleStep * index * (Math.PI / 180);
     const x = -Math.cos(angle) * radius;
     const y = -Math.sin(angle) * radius;
 
@@ -81,13 +83,13 @@ export default function FloatingMenu({ navigation }) {
               item.action();
             }}
           >
-            <Text style={styles.icon}>{item.icon}</Text>
+            <Icon name={item.name} size={22} color="#fff" />
           </TouchableOpacity>
         </Animated.View>
       ))}
 
       <TouchableOpacity style={styles.mainBtn} onPress={toggleMenu}>
-        <Text style={styles.mainIcon}>≡</Text>
+        <Icon name={open ? 'close' : 'menu'} size={28} color="#fff" />
       </TouchableOpacity>
     </View>
   );
@@ -104,7 +106,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     elevation: 6,
   },
-  mainIcon: { color: '#fff', fontSize: 28, fontWeight: 'bold' },
   smallBtn: {
     position: 'absolute',
     bottom: 5,
@@ -117,5 +118,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     elevation: 4,
   },
-  icon: { color: '#fff', fontSize: 20 },
 });

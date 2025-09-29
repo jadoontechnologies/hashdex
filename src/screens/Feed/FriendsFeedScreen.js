@@ -38,19 +38,16 @@ export default function FriendsFeedScreen({ navigation }) {
       const allPosts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
       const filtered = allPosts.filter(post => {
-        // Safety check
         if (!post.author || !post.author.id) return false;
 
-        if (post.visibility === "public") return true;
-
-        // Show your own posts (even if "friends")
-        if (post.visibility === "friends" && post.author.id === user.uid) return true;
-
-        // Show posts from friends
-        if (post.visibility === "friends" && friends.includes(post.author.id)) return true;
+        // Only show friends visibility
+        if (post.visibility === "friends" && (post.author.id === user.uid || friends.includes(post.author.id))) {
+          return true;
+        }
 
         return false;
       });
+
 
       setPosts(filtered);
     });

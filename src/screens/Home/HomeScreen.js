@@ -52,8 +52,8 @@ export default function HomeScreen({ navigation }) {
             },
           }}
         >
-          <Tab.Screen name="FriendsFeed" component={FriendsFeedScreen} options={{ title: 'Friends' }} />
           <Tab.Screen name="PublicFeed" component={PublicFeedScreen} options={{ title: 'Public' }} />
+          <Tab.Screen name="FriendsFeed" component={FriendsFeedScreen} options={{ title: 'Friends' }} />
           <Tab.Screen name="PrivateFeed" component={PrivateFeedScreen} options={{ title: 'Private' }} />
         </Tab.Navigator>
       </View>

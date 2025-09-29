@@ -20,7 +20,7 @@ export default function MainTabs() {
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarStyle: { display: 'none' }, // hide everywhere
+        tabBarStyle: { display: 'none' }, 
       }}
     >
       <Tab.Screen name="FeedTab" component={FeedStack} />
