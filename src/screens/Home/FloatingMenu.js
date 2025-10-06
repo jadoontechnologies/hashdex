@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, TouchableOpacity, StyleSheet, Animated } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import Feather from 'react-native-vector-icons/Feather';
 
 export default function FloatingMenu({ navigation }) {
   const [open, setOpen] = useState(false);
@@ -17,15 +17,15 @@ export default function FloatingMenu({ navigation }) {
 
   const icons = [
     {
-      name: 'cog',
+      name: 'settings',
       action: () => navigation.navigate('SettingsScreen'),
     },
     {
-      name: 'account',
+      name: 'user',
       action: () => navigation.navigate('ProfileTab', { screen: 'Profile' }),
     },
     {
-      name: 'account-multiple',
+      name: 'users',
       action: () => navigation.navigate('ProfileTab', { screen: 'Friends' }),
     },
     {
@@ -34,7 +34,7 @@ export default function FloatingMenu({ navigation }) {
         navigation.navigate('CollectionsTab', { screen: 'Collections' }),
     },
     {
-      name: 'pencil',
+      name: 'edit-3',
       action: () => navigation.navigate('Compose'),
     },
   ];
@@ -83,13 +83,13 @@ export default function FloatingMenu({ navigation }) {
               item.action();
             }}
           >
-            <Icon name={item.name} size={22} color="#fff" />
+            <Feather name={item.name} size={22} color="#fff" />
           </TouchableOpacity>
         </Animated.View>
       ))}
 
       <TouchableOpacity style={styles.mainBtn} onPress={toggleMenu}>
-        <Icon name={open ? 'close' : 'menu'} size={28} color="#fff" />
+        <Feather name={open ? 'x' : 'menu'} size={28} color="#fff" />
       </TouchableOpacity>
     </View>
   );

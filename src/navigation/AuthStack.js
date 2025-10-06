@@ -5,12 +5,13 @@ import RegisterScreen from '../screens/Auth/RegisterScreen';
 import ForgotPasswordScreen from '../screens/Auth/ForgotPasswordScreen';
 
 const Stack = createNativeStackNavigator();
+
 export default function AuthStack() {
   return (
-    <Stack.Navigator>
-      <Stack.Screen name="Login" component={LoginScreen} options={{ title: 'Sign in', headerShown: false }} />
-      <Stack.Screen name="Register" component={RegisterScreen} options={{ title: 'Create account' , headerShown: false}} />
-      <Stack.Screen name="Forgot" component={ForgotPasswordScreen} options={{ title: 'Reset password' , headerShown: false}} />
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="Register" component={RegisterScreen} />
+      <Stack.Screen name="Forgot" component={ForgotPasswordScreen} />
     </Stack.Navigator>
   );
 }

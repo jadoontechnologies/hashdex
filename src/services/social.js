@@ -9,13 +9,13 @@ export async function follow(userId, targetId, userProfile = {}, targetProfile =
   const followerRef = doc(db, "users", targetId, "followers", userId);
 
   await setDoc(followingRef, {
-    name: targetProfile.displayName || targetProfile.username || "User",
+    displayName: targetProfile.displayName || targetProfile.username || "User", // changed from 'name' to 'displayName'
     photoURL: targetProfile.photoURL || null,
     createdAt: Date.now(),
   });
 
   await setDoc(followerRef, {
-    name: userProfile.displayName || userProfile.username || "User",
+    displayName: userProfile.displayName || userProfile.username || "User", // changed from 'name' to 'displayName'
     photoURL: userProfile.photoURL || null,
     createdAt: Date.now(),
   });

@@ -1,5 +1,5 @@
 // src/screens/ComposeScreen.js
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons"; // icons
 import { db, storage, now } from "../../services/firebase";
 import {
   addDoc,
@@ -40,7 +41,63 @@ export default function ComposeScreen({ navigation }) {
   const [visibility, setVisibility] = useState("public");
   const [loading, setLoading] = useState(false);
 
-  // Pick Image
+  // collections state
+  const [allCollections, setAllCollections] = useState([]);
+  const [filtered, setFiltered] = useState([]);
+  const [selectedCollection, setSelectedCollection] = useState(null);
+
+  // fetch collections
+  useEffect(() => {
+    if (!user?.uid) return;
+    const loadCollections = async () => {
+      const snap = await getDocs(
+        query(collection(db, "collections"), where("ownerId", "==", user.uid))
+      );
+      setAllCollections(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    };
+    loadCollections();
+  }, [user]);
+
+  // filter collections
+  useEffect(() => {
+    if (!collectionName.trim()) {
+      setFiltered([]);
+      return;
+    }
+    const q = collectionName.toLowerCase();
+    const results = allCollections.filter((c) =>
+      c.title?.toLowerCase().includes(q)
+    );
+    setFiltered(results);
+  }, [collectionName, allCollections]);
+
+  // quick create
+  const quickCreateCollection = async (name) => {
+    try {
+      const payload = {
+        ownerId: user.uid,
+        title: name.trim().toLowerCase(),
+        description: "",
+        visibility: "private",
+        cover: {},
+        stats: { items: 0, saves: 0, shares: 0, views: 0 },
+        createdAt: now(),
+        updatedAt: now(),
+      };
+      const docRef = await addDoc(collection(db, "collections"), payload);
+      const newCollection = { id: docRef.id, ...payload };
+      setAllCollections((prev) => [newCollection, ...prev]);
+      setSelectedCollection(newCollection);
+      setCollectionName(newCollection.title);
+      setFiltered([]);
+      Alert.alert("✅ Created", `New collection "${name}" created`);
+    } catch (err) {
+      console.error("quickCreate error:", err);
+      Alert.alert("❌ Error", "Failed to create collection");
+    }
+  };
+
+  // pick image
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -53,7 +110,7 @@ export default function ComposeScreen({ navigation }) {
     }
   };
 
-  // Upload Image
+  // upload image
   const uploadImageAsync = async (uri) => {
     const response = await fetch(uri);
     const blob = await response.blob();
@@ -62,7 +119,7 @@ export default function ComposeScreen({ navigation }) {
     return await getDownloadURL(storageRef);
   };
 
-  // Submit Post
+  // submit post
   const submitPost = async () => {
     if (authLoading) {
       Alert.alert("⏳ Please wait, loading profile...");
@@ -84,13 +141,17 @@ export default function ComposeScreen({ navigation }) {
         imageUrl = await uploadImageAsync(image);
       }
 
-      // Extract hashtags → regex instead of comma split
+      // extract hashtags
       const extractedTags = Array.from(
         new Set(
           [
             ...text.matchAll(/#(\w+)/g),
-            ...(hashtags ? hashtags.split(",").map((t) => [t.trim().replace("#", "")]) : []),
-          ].map((m) => m[1] || m[0])
+            ...(hashtags
+              ? hashtags.split(",").map((t) => [t.trim().replace("#", "")])
+              : []),
+          ]
+            .map((m) => (m[1] || m[0]).toLowerCase().trim())
+            .filter((tag) => tag.length > 0)
         )
       );
 
@@ -114,14 +175,11 @@ export default function ComposeScreen({ navigation }) {
         comments: 0,
       };
 
-      // Save post in "posts"
       const postRef = await addDoc(collection(db, "posts"), payload);
 
-      // 🔹 Track hashtags globally
       if (extractedTags.length) {
         await trackHashtags(extractedTags);
 
-        // 🔹 Index post IDs under each hashtag (fast retrieval)
         for (const tag of extractedTags) {
           const tagRef = doc(db, "hashtags", tag.toLowerCase());
           await setDoc(
@@ -137,47 +195,49 @@ export default function ComposeScreen({ navigation }) {
         }
       }
 
-      // 🔹 Save to collection if name provided
+      // add to collection if given
       if (collectionName) {
-        const q = query(
-          collection(db, "collections"),
-          where("title", "==", collectionName.trim().toLowerCase())
-        );
-        const snap = await getDocs(q);
+        let targetCollection = selectedCollection;
 
-        if (!snap.empty) {
-          const collectionRef = snap.docs[0].ref;
+        if (!targetCollection) {
+          const q = query(
+            collection(db, "collections"),
+            where("title", "==", collectionName.trim().toLowerCase())
+          );
+          const snap = await getDocs(q);
+          if (!snap.empty) {
+            targetCollection = { id: snap.docs[0].id, ...snap.docs[0].data() };
+          }
+        }
+
+        if (targetCollection) {
+          const collectionRef = doc(db, "collections", targetCollection.id);
           await addDoc(
-            collection(db, "collections", collectionRef.id, "items"),
+            collection(db, "collections", targetCollection.id, "items"),
             { ...payload, postId: postRef.id }
           );
           await updateDoc(collectionRef, {
             "stats.items": increment(1),
             updatedAt: now(),
           });
-          Alert.alert(
-            "✅ Success",
-            `Your post was added to "${collectionName}"`
-          );
+          Alert.alert("✅ Success", `Added to "${targetCollection.title}"`);
         } else {
-          Alert.alert(
-            "⚠️ Collection not found",
-            "This collection does not exist."
-          );
+          Alert.alert("⚠️ Collection not found");
         }
       } else {
         Alert.alert("✅ Success", "Your post has been published!");
       }
 
-      // Reset form
+      // reset form
       setText("");
       setImage(null);
       setHashtags("");
       setCollectionName("");
+      setSelectedCollection(null);
       setVisibility("public");
       navigation.goBack();
     } catch (error) {
-      console.error("❌ Error posting:", error);
+      console.error("post error:", error);
       Alert.alert("❌ Error", error.message || "Something went wrong.");
     } finally {
       setLoading(false);
@@ -186,16 +246,15 @@ export default function ComposeScreen({ navigation }) {
 
   if (authLoading || !profile) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+      <View style={styles.center}>
         <ActivityIndicator size="large" color="#6c63ff" />
-        <Text>Loading your profile...</Text>
+        <Text>Loading profile...</Text>
       </View>
     );
   }
 
   return (
     <View style={{ flex: 1, backgroundColor: "#f5f5f5" }}>
-      {/* Header */}
       <LinearGradient
         colors={["#F9F871", "#F28A47", "#DE5C76"]}
         start={{ x: 0, y: 1 }}
@@ -206,13 +265,12 @@ export default function ComposeScreen({ navigation }) {
           style={styles.backBtn}
           onPress={() => navigation.goBack()}
         >
-          <Text style={styles.backText}>{"<"}</Text>
+          <Ionicons name="chevron-back" size={28} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Create Post</Text>
       </LinearGradient>
 
       <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
-        {/* Card */}
         <View style={styles.card}>
           <RNTextInput
             style={[styles.input, { height: 100 }]}
@@ -226,7 +284,7 @@ export default function ComposeScreen({ navigation }) {
             {image ? (
               <Image source={{ uri: image }} style={styles.coverImage} />
             ) : (
-              <Text style={styles.addCoverText}>＋ Add Image</Text>
+              <Ionicons name="image-outline" size={32} color="#888" />
             )}
           </TouchableOpacity>
 
@@ -237,14 +295,54 @@ export default function ComposeScreen({ navigation }) {
             onChangeText={setHashtags}
           />
 
+          {/* collections input */}
           <RNTextInput
             style={styles.input}
             placeholder="Enter collection name (optional)"
             value={collectionName}
-            onChangeText={setCollectionName}
+            onChangeText={(text) => {
+              setCollectionName(text);
+              setSelectedCollection(null);
+            }}
           />
 
-          {/* Visibility */}
+          {/* dropdown */}
+          {collectionName.length > 0 && !selectedCollection && (
+            <View style={styles.dropdown}>
+              {[
+                ...filtered,
+                !filtered.some(
+                  (c) =>
+                    c.title.toLowerCase() ===
+                    collectionName.trim().toLowerCase()
+                ) && {
+                  id: "new",
+                  title: `➕ Create "${collectionName}"`,
+                  isNew: true,
+                },
+              ]
+                .filter(Boolean)
+                .map((item) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={styles.dropdownItem}
+                    onPress={() => {
+                      if (item.isNew) {
+                        quickCreateCollection(collectionName);
+                      } else {
+                        setSelectedCollection(item);
+                        setCollectionName(item.title);
+                        setFiltered([]);
+                      }
+                    }}
+                  >
+                    <Text>{item.title}</Text>
+                  </TouchableOpacity>
+                ))}
+            </View>
+          )}
+
+          {/* visibility toggle */}
           <View style={styles.visibilityRow}>
             {["public", "friends", "private"].map((opt) => (
               <TouchableOpacity
@@ -277,7 +375,7 @@ export default function ComposeScreen({ navigation }) {
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.postButtonText}>🚀 Publish Post</Text>
+              <Text style={styles.postButtonText}>Publish Post</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -287,6 +385,7 @@ export default function ComposeScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  center: { flex: 1, justifyContent: "center", alignItems: "center" },
   header: {
     height: 80,
     flexDirection: "row",
@@ -296,7 +395,6 @@ const styles = StyleSheet.create({
     paddingTop: 14,
   },
   backBtn: { position: "absolute", left: 16, top: 30 },
-  backText: { fontSize: 28, color: "#fff", fontWeight: "700" },
   headerTitle: { fontSize: 22, fontWeight: "700", color: "#fff", paddingTop: 8 },
   card: {
     backgroundColor: "#fff",
@@ -323,7 +421,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   coverImage: { width: "100%", height: "100%", borderRadius: 12 },
-  addCoverText: { fontSize: 18, color: "#888" },
   visibilityRow: {
     flexDirection: "row",
     justifyContent: "space-around",
@@ -345,4 +442,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   postButtonText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
+  dropdown: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 8,
+    maxHeight: 150,
+    marginBottom: 12,
+  },
+  dropdownItem: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
 });

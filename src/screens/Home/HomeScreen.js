@@ -2,6 +2,8 @@ import React from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { LinearGradient } from 'expo-linear-gradient';
+import Feather from "react-native-vector-icons/Feather";
+
 import FriendsFeedScreen from '../Feed/FriendsFeedScreen';
 import PublicFeedScreen from '../Feed/PublicFeedScreen';
 import PrivateFeedScreen from '../Feed/PrivateFeedScreen';
@@ -21,14 +23,14 @@ export default function HomeScreen({ navigation }) {
         style={styles.heroArea}
       >
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.navigate('Chat')}>
-            <Text style={styles.headerButton}>💬</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('ChatList')}>
+            <Feather name="message-circle" size={26} color="#fff" />
           </TouchableOpacity>
 
           <Text style={styles.headerTitle}>Home</Text>
 
           <TouchableOpacity onPress={() => navigation.navigate('Alerts')}>
-            <Text style={styles.headerButton}>🔔</Text>
+            <Feather  name="bell" size={26} color="#fff" />
           </TouchableOpacity>
         </View>
       </LinearGradient>
@@ -46,10 +48,7 @@ export default function HomeScreen({ navigation }) {
           screenOptions={{
             tabBarLabelStyle: { color: '#ff7b72', fontWeight: 'bold' },
             tabBarIndicatorStyle: { backgroundColor: '#ff7b72' },
-            tabBarStyle: {
-              backgroundColor: '#fff',
-              elevation: 0
-            },
+            tabBarStyle: { backgroundColor: '#fff', elevation: 0 },
           }}
         >
           <Tab.Screen name="PublicFeed" component={PublicFeedScreen} options={{ title: 'Public' }} />
@@ -68,7 +67,7 @@ export default function HomeScreen({ navigation }) {
         style={[styles.fab, styles.leftFab]}
         onPress={() => navigation.navigate('Hashtage')}
       >
-        <Text style={styles.fabText}>#</Text>
+        <Feather name="hash" size={22} color="#fff" />
       </TouchableOpacity>
 
       {/* FLOATING MENU BUTTON */}
@@ -81,7 +80,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
 
   heroArea: {
-    paddingTop: 50,
+    paddingTop: 25,
     paddingBottom: 10,
     borderBottomLeftRadius: 25,
     borderBottomRightRadius: 25,
@@ -92,12 +91,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     marginBottom: 8
   },
 
   headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#fff' },
-  headerButton: { fontSize: 22, color: '#fff' },
 
   searchBar: {
     margin: 10,
@@ -110,7 +108,7 @@ const styles = StyleSheet.create({
   },
 
   adBanner: {
-    height: 60,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#eee',
@@ -130,6 +128,5 @@ const styles = StyleSheet.create({
     elevation: 4
   },
 
-  fabText: { color: '#fff', fontSize: 26, fontWeight: 'bold' },
   leftFab: { left: 20, bottom: 70 }
 });

@@ -123,7 +123,8 @@ export default function FriendsScreen({ navigation }) {
     if (action === "message") {
       navigation.navigate("Chat", {
         userId: item.id,
-        userName: item.displayName,
+        userName: item.displayName || item.name,
+        photoURL: item.photoURL
       });
     } else if (action === "unfollow") {
       handleUnfollow(item.id);
@@ -171,15 +172,13 @@ export default function FriendsScreen({ navigation }) {
         {tab === "Followers" && (
           <View style={{ flexDirection: "row", alignItems: "center" }}>
             <TouchableOpacity
-              style={[
-                styles.btn,
-                isFollowing ? styles.btnOutlined : styles.btnFilled,
-              ]}
+              style={[styles.btn, isFollowing ? styles.btnOutlined : styles.btnFilled]}
               onPress={() =>
                 isFollowing
                   ? navigation.navigate("Chat", {
                     userId: item.id,
-                    userName: item.displayName,
+                    userName: item.displayName || item.name || "User",
+                    photoURL: item.photoURL || "https://placehold.co/100x100" // fallback
                   })
                   : handleFollow(item)
               }

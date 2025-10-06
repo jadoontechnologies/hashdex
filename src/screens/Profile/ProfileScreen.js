@@ -144,7 +144,6 @@ export default function ProfileScreen({ navigation, route }) {
             <Text>{saved ? "🔖 Saved" : "🔖 Save"}</Text>
           </TouchableOpacity>
 
-          {/* 3 Dots Menu */}
           <Menu
             visible={menuVisible}
             onDismiss={() => setMenuVisible(false)}
@@ -158,8 +157,8 @@ export default function ProfileScreen({ navigation, route }) {
               onPress={async () => {
                 setMenuVisible(false);
                 try {
-                  const message = `Check out this portfolio item:\n\n${item.description || ""}\n${item.link ? item.link : ""
-                    }`;
+                  const message = `Check out this portfolio item:\n\n${item.description || ""
+                    }\n${item.link ? item.link : ""}`;
                   await Share.share({ message });
                 } catch (error) {
                   Alert.alert("Error", "Failed to share portfolio item");
@@ -184,7 +183,6 @@ export default function ProfileScreen({ navigation, route }) {
       </View>
     );
   };
-
 
   const Header = () => (
     <LinearGradient
@@ -226,16 +224,24 @@ export default function ProfileScreen({ navigation, route }) {
             title="Share"
             leadingIcon="share-variant"
           />
-
           {viewingOwn && (
-            <Menu.Item
-              onPress={() => {
-                setMenuVisible(false);
-                navigation.navigate("EditProfile"); // Replace with your Edit Profile screen
-              }}
-              title="Edit Profile"
-              leadingIcon="pencil"
-            />
+            <>
+              <Menu.Item
+                onPress={() => {
+                  setMenuVisible(false);
+                  Alert.alert(
+                    "Confirm Sign Out",
+                    "Are you sure you want to sign out?",
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      { text: "Sign Out", style: "destructive", onPress: signOut },
+                    ]
+                  );
+                }}
+                title="Sign Out"
+                leadingIcon="logout"
+              />
+            </>
           )}
         </Menu>
       </View>
@@ -256,13 +262,18 @@ export default function ProfileScreen({ navigation, route }) {
               <TouchableOpacity
                 style={styles.messageBtn}
                 onPress={() =>
-                  navigation.navigate("Chat", { userId: targetId })
+                  navigation.navigate("Chat", {
+                    userId: targetId,
+                    userName: data?.displayName || "User",
+                    photoURL: data?.photoURL || "https://placehold.co/100x100",
+                  })
                 }
               >
                 <Text style={{ color: "#ff6a3d", fontWeight: "600" }}>
                   Message
                 </Text>
               </TouchableOpacity>
+
               <TouchableOpacity
                 style={styles.followBtn}
                 onPress={toggleFollow}
@@ -275,7 +286,7 @@ export default function ProfileScreen({ navigation, route }) {
           )}
         </View>
       </View>
-    </LinearGradient>
+    </LinearGradient >
   );
 
   const Tabs = () => (
@@ -450,8 +461,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     elevation: 5,
   },
-
-  // Portfolio styles
   portfolioCard: {
     backgroundColor: "#fafafa",
     margin: 8,

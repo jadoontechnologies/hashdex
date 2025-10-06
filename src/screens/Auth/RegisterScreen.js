@@ -9,8 +9,10 @@ import {
   Image,
   Pressable,
   SafeAreaView,
+  ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth, db, now } from '../../services/firebase';
 import { doc, setDoc } from 'firebase/firestore';
@@ -27,10 +29,14 @@ export default function RegisterScreen({ navigation }) {
 
   const register = async () => {
     try {
-      if (!agree) return Alert.alert('Almost there', 'Please agree to the Terms to continue.');
-      if (!first.trim() || !last.trim()) return Alert.alert('Name required', 'Please enter your first and last name.');
-      if (pass.length < 6) return Alert.alert('Weak password', 'Password must be at least 6 characters.');
-      if (pass !== confirm) return Alert.alert('Passwords do not match', 'Please confirm your password.');
+      if (!agree)
+        return Alert.alert('Almost there', 'Please agree to the Terms to continue.');
+      if (!first.trim() || !last.trim())
+        return Alert.alert('Name required', 'Please enter your first and last name.');
+      if (pass.length < 6)
+        return Alert.alert('Weak password', 'Password must be at least 6 characters.');
+      if (pass !== confirm)
+        return Alert.alert('Passwords do not match', 'Please confirm your password.');
 
       const cred = await createUserWithEmailAndPassword(auth, email.trim(), pass);
       await updateProfile(cred.user, { displayName: fullName });
@@ -45,7 +51,7 @@ export default function RegisterScreen({ navigation }) {
         counters: { followers: 0, following: 0, posts: 0, collections: 0 },
       });
 
-      // navigation && navigation.replace && navigation.replace('Home');
+      // navigation.replace('Home'); // enable if you want to redirect
     } catch (e) {
       Alert.alert('Registration failed', e.message);
     }
@@ -59,16 +65,15 @@ export default function RegisterScreen({ navigation }) {
       style={{ flex: 1 }}
     >
       <SafeAreaView style={{ flex: 1 }}>
-        {/* Top Header */}
-        <View style={styles.topBar}>
-          <Pressable onPress={() => navigation.goBack()}>
-            <Text style={styles.backArrow}>{'<'}</Text>
-          </Pressable>
-          <Text style={styles.screenTitle}>Sign Up</Text>
-        </View>
+        <ScrollView contentContainerStyle={styles.container}>
+          {/* Header */}
+          <View style={styles.topBar}>
+            <Pressable onPress={() => navigation.goBack()}>
+              <Text style={styles.backArrow}>{'<'}</Text>
+            </Pressable>
+            <Text style={styles.screenTitle}>Sign Up</Text>
+          </View>
 
-        {/* Content */}
-        <View style={styles.content}>
           {/* Logo */}
           <Image
             source={require('../../../assets/images/ic_logo.png')}
@@ -76,9 +81,17 @@ export default function RegisterScreen({ navigation }) {
             resizeMode="contain"
           />
 
-          {/* Form Inputs */}
-          <UnderlineInput placeholder="First Name" value={first} onChangeText={setFirst} />
-          <UnderlineInput placeholder="Last Name" value={last} onChangeText={setLast} />
+          {/* Inputs */}
+          <UnderlineInput
+            placeholder="First Name"
+            value={first}
+            onChangeText={setFirst}
+          />
+          <UnderlineInput
+            placeholder="Last Name"
+            value={last}
+            onChangeText={setLast}
+          />
           <UnderlineInput
             placeholder="Email"
             value={email}
@@ -86,47 +99,76 @@ export default function RegisterScreen({ navigation }) {
             autoCapitalize="none"
             keyboardType="email-address"
           />
-          <UnderlineInput placeholder="Password" value={pass} onChangeText={setPass} secureTextEntry />
-          <UnderlineInput placeholder="Confirm Password" value={confirm} onChangeText={setConfirm} secureTextEntry />
+          <UnderlineInput
+            placeholder="Password"
+            value={pass}
+            onChangeText={setPass}
+            secureTextEntry
+          />
+          <UnderlineInput
+            placeholder="Confirm Password"
+            value={confirm}
+            onChangeText={setConfirm}
+            secureTextEntry
+          />
 
           {/* Terms */}
           <Pressable style={styles.termsRow} onPress={() => setAgree(!agree)}>
             <View style={[styles.checkbox, agree && styles.checkboxChecked]} />
             <Text style={styles.termsText}>
               By proceeding to create your account, you are agreeing to our{' '}
-              <Text style={styles.linkText}>Terms of Service</Text> and <Text style={styles.linkText}>Privacy Policy</Text>
+              <Text style={styles.linkText}>Terms of Service</Text> and{' '}
+              <Text style={styles.linkText}>Privacy Policy</Text>.
             </Text>
           </Pressable>
 
           {/* Sign up button */}
-          <Pressable onPress={register} style={({ pressed }) => [styles.cta, pressed && { opacity: 0.9 }]}>
+          <Pressable
+            onPress={register}
+            style={({ pressed }) => [styles.cta, pressed && { opacity: 0.9 }]}
+          >
             <Text style={styles.ctaText}>Sign up</Text>
           </Pressable>
-        </View>
+        </ScrollView>
       </SafeAreaView>
     </LinearGradient>
   );
 }
 
-/* Thin-underlined input */
-function UnderlineInput(props) {
+/* Custom Underline Input with optional Eye Toggle */
+function UnderlineInput({ secureTextEntry, ...props }) {
+  const [show, setShow] = useState(false);
+
   return (
     <View style={styles.inputWrap}>
-      <RNTextInput
-        placeholderTextColor="rgba(255,255,255,0.9)"
-        {...props}
-        style={[styles.input, props.style]}
-      />
+      <View style={styles.inputRow}>
+        <RNTextInput
+          placeholderTextColor="rgba(255,255,255,0.9)"
+          {...props}
+          secureTextEntry={secureTextEntry && !show}
+          style={[styles.input, props.style]}
+        />
+        {secureTextEntry && (
+          <Pressable onPress={() => setShow(!show)} style={styles.eyeIcon}>
+            <Feather name={show ? 'eye-off' : 'eye'} size={18} color="white" />
+          </Pressable>
+        )}
+      </View>
       <View style={styles.underline} />
     </View>
   );
 }
 
+/* Styles */
 const styles = StyleSheet.create({
+  container: {
+    flexGrow: 1,
+    paddingHorizontal: 22,
+    paddingBottom: 40,
+  },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
     paddingVertical: 12,
   },
   backArrow: {
@@ -138,29 +180,31 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
     color: 'white',
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: '600',
-    paddingTop: 24,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 22,
-    paddingTop: 18,
+    marginRight: 30,
   },
   logo: {
-    width: 140,
-    height: 80,
+    width: 160,
+    height: 90,
     alignSelf: 'center',
-    marginVertical: 20,
-    marginLeft: 30,
+    marginVertical: 25,
   },
   inputWrap: {
     marginTop: 18,
   },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   input: {
     color: 'white',
     fontSize: 16,
+    flex: 1,
     paddingVertical: 8,
+  },
+  eyeIcon: {
+    paddingHorizontal: 6,
   },
   underline: {
     height: StyleSheet.hairlineWidth,
@@ -170,7 +214,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 10,
-    marginTop: 22,
+    marginTop: 24,
   },
   checkbox: {
     width: 20,
@@ -196,7 +240,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   cta: {
-    marginTop: 28,
+    marginTop: 30,
     backgroundColor: 'white',
     borderRadius: 10,
     paddingVertical: 14,
