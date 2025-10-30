@@ -9,10 +9,10 @@ const Stack = createNativeStackNavigator();
 export default function CollectionsStack() {
   return (
     <Stack.Navigator>
-      <Stack.Screen name="Collections" component={CollectionsListScreen} />
-      <Stack.Screen name="CreateCollection" component={CreateCollectionScreen} options={{ title: 'New Collection' }} />
-      <Stack.Screen name="CollectionDetail" component={CollectionDetailScreen} options={{ title: 'Collection' }} />
-      <Stack.Screen name="EditCollection" component={EditCollectionScreen} options={{ title: 'Edit Collection' }} />
+      <Stack.Screen name="Collections" component={CollectionsListScreen} options={ { headerShown: false }} />
+      <Stack.Screen name="CreateCollection" component={CreateCollectionScreen} options={{ title: 'New Collection', headerShown: false }} />
+      <Stack.Screen name="CollectionDetail" component={CollectionDetailScreen} options={{ title: 'Collection', headerShown: false }} />
+      <Stack.Screen name="EditCollection" component={EditCollectionScreen} options={{ title: 'Edit Collection', headerShown: false }} />
     </Stack.Navigator>
   );
 }

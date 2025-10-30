@@ -1,18 +1,27 @@
-import React, { useContext } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import AuthStack from './AuthStack';
 import MainTabs from './MainTabs';
 import OnboardingScreen from '../screens/Onboarding/OnboardingScreen';
+import SplashScreen from '../screens/SplashScreen/SplashScreen';
 import { AuthContext } from '../state/AuthContext';
 
 const Stack = createNativeStackNavigator();
 
 export default function RootNavigator() {
   const { user, profile, loading } = useContext(AuthContext);
+  const [showSplash, setShowSplash] = useState(true);
 
-  if (loading) return null; // add a splash later
+  useEffect(() => {
+    const timer = setTimeout(() => setShowSplash(false), 2500);
+    return () => clearTimeout(timer);
+  }, []);
 
-  const needsOnboarding = user && profile && profile.firstRun === true;
+  if (loading || showSplash) {
+    return <SplashScreen />;
+  }
+
+  const needsOnboarding = profile?.firstRun === true;
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>

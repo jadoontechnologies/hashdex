@@ -1,4 +1,4 @@
-import React, { createContext, useEffect, useState } from 'react';
+import React, { createContext, useEffect, useState, useContext } from 'react';
 import { auth, db, now } from '../services/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -11,30 +11,41 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    return onAuthStateChanged(auth, async (u) => {
-      setUser(u);
-      if (u) {
-        const ref = doc(db, 'users', u.uid);
-        const snap = await getDoc(ref);
-        if (!snap.exists()) {
-          await setDoc(ref, {
-            displayName: u.displayName || '',
-            photoURL: u.photoURL || '',
-            username: '',
-            firstRun: true,
-            joinedAt: now(),
-            visibility: 'public',
-            counters: { followers: 0, following: 0, posts: 0, collections: 0 },
-          });
-          setProfile({ firstRun: true });
+    const unsubscribe = onAuthStateChanged(auth, async (u) => {
+      try {
+        if (u) {
+          setUser(u);
+
+          const ref = doc(db, 'users', u.uid);
+          const snap = await getDoc(ref);
+
+          if (!snap.exists()) {
+            const newProfile = {
+              displayName: u.displayName || '',
+              photoURL: u.photoURL || '',
+              username: '',
+              firstRun: true,
+              joinedAt: now(),
+              visibility: 'public',
+              counters: { followers: 0, following: 0, posts: 0, collections: 0 },
+            };
+            await setDoc(ref, newProfile);
+            setProfile(newProfile);
+          } else {
+            setProfile(snap.data());
+          }
         } else {
-          setProfile(snap.data());
+          setUser(null);
+          setProfile(null);
         }
-      } else {
-        setProfile(null);
+      } catch (e) {
+        console.error('AuthContext error:', e);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
+
+    return unsubscribe;
   }, []);
 
   const value = {
@@ -46,4 +57,8 @@ export function AuthProvider({ children }) {
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth() {
+  return useContext(AuthContext);
 }

@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useRef } from 'react';
 import {
   SafeAreaView,
   View,
@@ -6,36 +6,54 @@ import {
   StyleSheet,
   StatusBar,
   ActivityIndicator,
-  Image,
   useColorScheme,
+  FlatList,
+  Dimensions,
+  TouchableOpacity,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import Button from '../../components/Button';
 import { AuthContext } from '../../state/AuthContext';
 import { db } from '../../services/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 
+const { width } = Dimensions.get('window');
+
+const slides = [
+  { key: '1', title: 'Create Collection', desc: 'Organize your items into collections', logo: '🗂️' },
+  { key: '2', title: 'Assign Hashtag', desc: 'Tag your collections with relevant hashtags', logo: '🏷️' },
+  { key: '3', title: 'Share Data', desc: 'Share your collections easily', logo: '🔗' },
+  { key: '4', title: 'Share Hashtag', desc: 'Let others explore via hashtags', logo: '📣' },
+  { key: '5', title: 'Friends', desc: 'Connect with friends', logo: '👥' },
+  { key: '6', title: 'Chat', desc: 'Communicate with your network', logo: '💬' },
+  { key: '7', title: 'Hashtag Index', desc: 'Discover trending hashtags', logo: '🔍' },
+  { key: '8', title: 'Collections', desc: 'Browse collections easily', logo: '📚' },
+  { key: '9', title: 'Done', desc: 'Start your journey!', logo: '🎉' },
+];
+
 export default function OnboardingScreen() {
-  const { user } = useContext(AuthContext);
+  const { user, profile, setProfile } = useContext(AuthContext);
   const navigation = useNavigation();
   const colorScheme = useColorScheme();
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const flatListRef = useRef(null);
 
   const finish = async () => {
     setErr(null);
     setSubmitting(true);
     try {
-      // If we don't have a user (e.g., logged out), just go to Login.
       if (!user?.uid) {
-        navigation.navigate('Login');
+        navigation.replace('Auth');
         return;
       }
 
       await updateDoc(doc(db, 'users', user.uid), { firstRun: false });
 
-      // Replace so onboarding isn't in the back stack.
-      navigation.replace('Auth');
+      setProfile({ ...profile, firstRun: false });
+
     } catch (e) {
       setErr('Something went wrong. Please try again.');
       console.error(e);
@@ -47,20 +65,49 @@ export default function OnboardingScreen() {
   const isDark = colorScheme === 'dark';
   const theme = isDark ? dark : light;
 
+  const handleNext = () => {
+    if (currentIndex < slides.length - 1) {
+      flatListRef.current.scrollToIndex({ index: currentIndex + 1 });
+    } else {
+      finish();
+    }
+  };
+
+  const handleSkip = () => {
+    finish();
+  };
+
+  const onViewableItemsChanged = ({ viewableItems }) => {
+    if (viewableItems.length > 0) {
+      setCurrentIndex(viewableItems[0].index);
+    }
+  };
+
+  const viewConfigRef = { viewAreaCoveragePercentThreshold: 50 };
+
+  const renderItem = ({ item }) => (
+    <LinearGradient
+      colors={['#F9F871', '#F28A47', '#DE5C76']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.cardGradient}
+    >
+      <View style={styles.cardContent}>
+        <Text style={styles.slideLogo}>{item.logo}</Text>
+        <Text style={styles.cardTitle}>{item.title}</Text>
+        <Text style={styles.bullet}>{item.desc}</Text>
+      </View>
+    </LinearGradient>
+  );
+
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.bg }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+
       <View style={styles.wrap}>
         {/* Hero / Logo */}
         <View style={styles.hero}>
-          <View style={[styles.logoWrap, { backgroundColor: theme.emphasisBg, borderColor: theme.border }]}>
-            {/* Replace with your actual logo asset if you have one */}
-            {/* <Image
-              source={require('../../assets/icon.png')}
-              style={styles.logo}
-              resizeMode="contain"
-            /> */}
-          </View>
+          <View style={[styles.logoWrap, { backgroundColor: theme.emphasisBg, borderColor: theme.border }]} />
           <Text style={[styles.title, { color: theme.fg }]}>
             Welcome to <Text style={{ color: theme.accent }}>HashDex</Text>
           </Text>
@@ -69,35 +116,51 @@ export default function OnboardingScreen() {
           </Text>
         </View>
 
-        {/* Card */}
-        <View style={[styles.card, { backgroundColor: theme.cardBg, borderColor: theme.border, shadowColor: theme.shadow }]}>
-          <Text style={[styles.cardTitle, { color: theme.fg }]}>
-            What you can do
-          </Text>
-          <View style={styles.bullets}>
-            <Text style={[styles.bullet, { color: theme.fg }]}>✨ Build a rich profile that reflects you</Text>
-            <Text style={[styles.bullet, { color: theme.fg }]}>📚 Create collections for any topic</Text>
-            <Text style={[styles.bullet, { color: theme.fg }]}>🔗 Share publicly, privately, or with friends</Text>
-          </View>
+        {/* Slides */}
+        <FlatList
+          ref={flatListRef}
+          data={slides}
+          keyExtractor={(item) => item.key}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={viewConfigRef}
+          renderItem={renderItem}
+          contentContainerStyle={{ paddingVertical: 50 }}
+        />
 
-          <Text style={[styles.helper, { color: theme.muted }]}>
-            You can change these anytime in Settings.
-          </Text>
-
-          <Button
-            title={submitting ? 'Please wait…' : 'Get Started'}
-            onPress={finish}
-            disabled={submitting}
-          />
-
-          {submitting && (
-            <View style={styles.loading}>
-              <ActivityIndicator />
-            </View>
-          )}
-
-          {err ? <Text style={[styles.error, { color: theme.error }]}>{err}</Text> : null}
+        {/* Dots */}
+        <View style={styles.dotsContainer}>
+          {slides.map((_, index) => (
+            <View
+              key={index}
+              style={[
+                styles.dot,
+                { backgroundColor: currentIndex === index ? theme.accent : theme.border },
+              ]}
+            />
+          ))}
         </View>
+
+        <View
+          style={[
+            styles.buttonRow,
+            currentIndex === slides.length - 1 && { justifyContent: 'center' }, // center on last slide
+          ]}
+        >
+          {currentIndex < slides.length - 1 && (
+            <TouchableOpacity onPress={handleSkip} style={[styles.outlineBtn, { borderColor: theme.accent }]}>
+              <Text style={{ color: theme.accent, fontWeight: '600' }}>Skip</Text>
+            </TouchableOpacity>
+          )}
+          <Button
+            title={currentIndex === slides.length - 1 ? 'Get Started' : 'Next'}
+            onPress={handleNext}
+          />
+        </View>
+
+        {err ? <Text style={[styles.error, { color: theme.error }]}>{err}</Text> : null}
 
         {/* Footer */}
         <Text style={[styles.footer, { color: theme.muted }]}>
@@ -137,11 +200,11 @@ const styles = StyleSheet.create({
   wrap: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingTop: 20,
     paddingBottom: 28,
     justifyContent: 'space-between',
   },
-  hero: { alignItems: 'center', marginTop: 24 },
+  hero: { alignItems: 'center', marginTop: 20 },
   logoWrap: {
     width: 84,
     height: 84,
@@ -149,25 +212,32 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: 50,
   },
-  logo: { width: 48, height: 48 },
   title: { fontSize: 28, fontWeight: '800', letterSpacing: 0.3, textAlign: 'center' },
   subtitle: { fontSize: 15, textAlign: 'center', marginTop: 8, lineHeight: 20 },
-  card: {
-    borderRadius: 18,
-    borderWidth: 1,
-    padding: 18,
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
+  cardGradient: {
+    borderRadius: 24,
+    width: width * 0.75,
+    height: 250,
+    marginHorizontal: width * 0.075,
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
     shadowOffset: { width: 0, height: 6 },
-    elevation: 3,
+    elevation: 6,
+    padding: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  cardTitle: { fontSize: 16, fontWeight: '700', marginBottom: 10 },
-  bullets: { gap: 6, marginBottom: 14 },
-  bullet: { fontSize: 15, lineHeight: 22 },
-  helper: { fontSize: 12, marginBottom: 14 },
+  cardContent: { alignItems: 'center' },
+  slideLogo: { fontSize: 50, marginBottom: 16 },
+  cardTitle: { fontSize: 20, fontWeight: '700', marginBottom: 8, color: '#fff', textAlign: 'center' },
+  bullet: { fontSize: 15, lineHeight: 22, color: '#fff', textAlign: 'center' },
+  dotsContainer: { flexDirection: 'row', justifyContent: 'center', marginVertical: 12, gap: 6 },
+  dot: { width: 8, height: 8, borderRadius: 4, marginHorizontal: 4 },
+  buttonRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
+  outlineBtn: { paddingVertical: 12, paddingHorizontal: 20, borderWidth: 1, borderRadius: 12 },
   loading: { marginTop: 12 },
-  error: { fontSize: 13, marginTop: 10 },
+  error: { fontSize: 13, marginTop: 10, textAlign: 'center' },
   footer: { textAlign: 'center', fontSize: 12, marginTop: 8 },
 });
