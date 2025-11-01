@@ -1,35 +1,140 @@
-import React from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
+// src/components/PostCard.js
+import React from "react";
+import { View, Text, Image, TouchableOpacity, StyleSheet } from "react-native";
+import MediaCarousel from "./MediaCarousel";
 
 export default function PostCard({ post, onPress }) {
+  // 🔹 Safe data extraction with fallbacks
+  const authorPhoto =
+    post?.authorPhoto ||
+    post?.author?.photoURL ||
+    "https://placehold.co/100x100/eee/ccc?text=User";
+  const authorName =
+    post?.authorName || post?.author?.displayName || "Anonymous User";
+  const visibility = post?.visibility || "public";
+  const postText = post?.text || "";
+
+  // 🔹 Handle media array (Cloudinary URLs)
+  const media =
+    post?.media ||
+    post?.attachments?.map((a) => a.url) ||
+    (post?.image ? [post.image] : []);
+
+  const likes = post?.stats?.likes || post?.likesCount || 0;
+  const comments = post?.stats?.comments || post?.commentsCount || 0;
+  const saves = post?.stats?.saves || post?.savesCount || 0;
+
   return (
-    <TouchableOpacity onPress={onPress} style={styles.card}>
+    <TouchableOpacity onPress={onPress} style={styles.card} activeOpacity={0.8}>
+      {/* Header */}
       <View style={styles.header}>
-        <Image source={{ uri: post.author?.photoURL || 'https://placekitten.com/80/80' }} style={styles.avatar} />
-        <View>
-          <Text style={styles.name}>{post.author?.displayName || 'User'}</Text>
-          <Text style={styles.meta}>{post.visibility?.toUpperCase()}</Text>
+        <Image
+          source={{ uri: authorPhoto }}
+          style={styles.avatar}
+        />
+        <View style={styles.userInfo}>
+          <Text style={styles.name} numberOfLines={1}>
+            {authorName}
+          </Text>
+          <Text style={styles.meta}>
+            {visibility.toUpperCase()} •{" "}
+            {post?.createdAt?.toDate?.().toLocaleDateString() || "Recently"}
+          </Text>
         </View>
       </View>
-      {post.text?.length ? <Text style={styles.text}>{post.text}</Text> : null}
-      {post.attachments?.[0]?.url ? (
-        <Image source={{ uri: post.attachments[0].url }} style={styles.img} />
-      ) : null}
+
+      {/* Post Text */}
+      {postText.length > 0 && (
+        <Text style={styles.text} numberOfLines={3}>
+          {postText}
+        </Text>
+      )}
+
+      {/* Media Carousel */}
+      {media?.length > 0 && <MediaCarousel media={media} />}
+
+      {/* Footer */}
       <View style={styles.footer}>
-        <Text>❤️ {post.stats?.likes || 0}</Text>
-        <Text>💬 {post.stats?.comments || 0}</Text>
-        <Text>🔖 {post.stats?.saves || 0}</Text>
+        <View style={styles.footerItem}>
+          <Text style={styles.footerIcon}>❤️</Text>
+          <Text style={styles.footerText}>{likes}</Text>
+        </View>
+        <View style={styles.footerItem}>
+          <Text style={styles.footerIcon}>💬</Text>
+          <Text style={styles.footerText}>{comments}</Text>
+        </View>
+        <View style={styles.footerItem}>
+          <Text style={styles.footerIcon}>🔖</Text>
+          <Text style={styles.footerText}>{saves}</Text>
+        </View>
       </View>
     </TouchableOpacity>
   );
 }
+
 const styles = StyleSheet.create({
-  card:{ backgroundColor:'#fff', marginVertical:8, borderRadius:16, overflow:'hidden', elevation:1 },
-  header:{ flexDirection:'row', padding:12, gap:10, alignItems:'center' },
-  avatar:{ width:36, height:36, borderRadius:18, backgroundColor:'#ddd' },
-  name:{ fontWeight:'600' },
-  meta:{ color:'#888', fontSize:12 },
-  text:{ paddingHorizontal:12, paddingBottom:8, fontSize:15 },
-  img:{ width:'100%', height:220, backgroundColor:'#eee' },
-  footer:{ flexDirection:'row', justifyContent:'space-around', padding:10, borderTopWidth:1, borderTopColor:'#f2f2f2' }
+  card: {
+    backgroundColor: "#fff",
+    marginVertical: 8,
+    marginHorizontal: 16,
+    borderRadius: 16,
+    overflow: "hidden",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+  },
+  header: {
+    flexDirection: "row",
+    padding: 16,
+    alignItems: "center",
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#f0f0f0",
+  },
+  userInfo: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  name: {
+    fontWeight: "600",
+    fontSize: 16,
+    color: "#333",
+  },
+  meta: {
+    color: "#888",
+    fontSize: 12,
+    marginTop: 2,
+  },
+  text: {
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    fontSize: 15,
+    lineHeight: 20,
+    color: "#444",
+  },
+  footer: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    padding: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#f0f0f0",
+  },
+  footerItem: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  footerIcon: {
+    fontSize: 16,
+    marginRight: 4,
+  },
+  footerText: {
+    fontSize: 14,
+    color: "#666",
+    fontWeight: "500",
+  },
 });

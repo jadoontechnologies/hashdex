@@ -1,26 +1,27 @@
+// src/screens/settings/BlockedUsersScreen.js
 import React, { useState, useEffect, useContext } from "react";
-import { View, FlatList, Text, TouchableOpacity, Image, StyleSheet, Alert } from "react-native";
+import { View, FlatList, StyleSheet, Alert } from "react-native";
 import { AuthContext } from "../../state/AuthContext";
 import { db } from "../../services/firebase";
 import { collection, onSnapshot, deleteDoc, doc } from "firebase/firestore";
-import { LinearGradient } from "expo-linear-gradient";
-import Header from "../../components/Header"; // Reusable header
 
-const BlockedUsersScreen = ({ navigation }) => {
+// 🔹 Shared Components
+import Header from "../../components/Header";
+import Avatar from "../../components/Avatar";
+import Button from "../../components/Button";
+import EmptyState from "../../components/EmptyState";
+
+export default function BlockedUsersScreen({ navigation }) {
   const { user } = useContext(AuthContext);
   const [blockedUsers, setBlockedUsers] = useState([]);
 
   useEffect(() => {
     if (!user?.uid) return;
-
     const unsub = onSnapshot(
       collection(db, "users", user.uid, "blocked"),
       (snap) =>
-        setBlockedUsers(
-          snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-        )
+        setBlockedUsers(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
     );
-
     return unsub;
   }, [user]);
 
@@ -39,48 +40,48 @@ const BlockedUsersScreen = ({ navigation }) => {
 
   const renderUser = ({ item }) => (
     <View style={styles.userCard}>
-      <LinearGradient
-        colors={["#F9F871", "#F28A47", "#DE5C76"]}
-        style={styles.avatarBorder}
-      >
-        <Image
-          source={{ uri: item.photoURL || "https://placehold.co/100x100" }}
-          style={styles.avatar}
-        />
-      </LinearGradient>
-      <Text style={styles.userName}>{item.displayName || "Unknown"}</Text>
-      <TouchableOpacity
-        style={styles.unblockBtn}
+      <Avatar
+        uri={item.photoURL || "https://placehold.co/100x100/eee/ccc?text=User"}
+        size={50}
+      />
+      <View style={styles.userInfo}>
+        <Text style={styles.userName}>{item.displayName || "Unknown"}</Text>
+      </View>
+      <Button
+        title="Unblock"
+        variant="primary"
         onPress={() => unblockUser(item.id)}
-      >
-        <Text style={{ color: "#fff" }}>Unblock</Text>
-      </TouchableOpacity>
+        style={styles.unblockBtn}
+      />
     </View>
   );
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#f5f5f5" }}>
-      <Header
-        title="Blocked Users"
-        navigation={navigation}
-        // Optionally add onMenuPress for future options
-      />
+    <View style={styles.container}>
+      <Header title="Blocked Users" showBackButton />
+
       <FlatList
         data={blockedUsers}
         keyExtractor={(item) => item.id}
         renderItem={renderUser}
-        contentContainerStyle={{ padding: 16 }}
+        contentContainerStyle={{ padding: 16, flexGrow: 1 }}
         ListEmptyComponent={
-          <Text style={{ textAlign: "center", marginTop: 20, color: "#888" }}>
-            No blocked users
-          </Text>
+          <EmptyState
+            icon="lock-closed-outline"
+            title="No blocked users"
+            message="You haven’t blocked anyone yet."
+          />
         }
       />
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#f5f5f5",
+  },
   userCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -88,18 +89,15 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderRadius: 16,
     marginBottom: 14,
+    elevation: 2,
   },
-  avatarBorder: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
+  userInfo: {
+    flex: 1,
+    marginLeft: 12,
   },
-  avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: "#eee" },
-  userName: { flex: 1, fontSize: 16, fontWeight: "700", color: "#333" },
-  unblockBtn: { backgroundColor: "#ff6a3d", padding: 8, borderRadius: 25 },
+  userName: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#333",
+  },
 });
-
-export default BlockedUsersScreen;

@@ -1,10 +1,14 @@
-import React, { useContext, useEffect, useState } from 'react';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import AuthStack from './AuthStack';
-import MainTabs from './MainTabs';
-import OnboardingScreen from '../screens/Onboarding/OnboardingScreen';
-import SplashScreen from '../screens/SplashScreen/SplashScreen';
-import { AuthContext } from '../state/AuthContext';
+// src/navigation/RootNavigator.js
+import React, { useContext, useEffect, useState } from "react";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import AuthStack from "./AuthStack";
+import MainTabs from "./MainTabs";
+import OnboardingScreen from "../screens/Onboarding/OnboardingScreen";
+import SplashScreen from "../screens/SplashScreen/SplashScreen";
+// import ReceiveShareScreen from "../screens/Feed/ReceiveShareScreen";
+import { AuthContext } from "../state/AuthContext";
+// import ShareHandlerWrapper from "../components/ShareHandlerWrapper.js"; // Commented out
+import ComposeScreen from "../screens/Feed/ComposeScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -24,14 +28,20 @@ export default function RootNavigator() {
   const needsOnboarding = profile?.firstRun === true;
 
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      {!user ? (
-        <Stack.Screen name="Auth" component={AuthStack} />
-      ) : needsOnboarding ? (
-        <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-      ) : (
-        <Stack.Screen name="Main" component={MainTabs} />
-      )}
-    </Stack.Navigator>
+    // <ShareHandlerWrapper> {/* Commented out */}
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        {!user ? (
+          <Stack.Screen name="Auth" component={AuthStack} />
+        ) : needsOnboarding ? (
+          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+        ) : (
+          <>
+            <Stack.Screen name="Main" component={MainTabs} />
+            {/* <Stack.Screen name="ReceiveShare" component={ReceiveShareScreen} /> */}
+            <Stack.Screen name="Compose" component={ComposeScreen} />
+          </>
+        )}
+      </Stack.Navigator>
+    // </ShareHandlerWrapper>
   );
 }

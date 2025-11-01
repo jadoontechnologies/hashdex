@@ -1,17 +1,15 @@
-import React from 'react';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import React from "react";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 
-// Existing stacks
-import FeedStack from './FeedStack';
-import CollectionsStack from './CollectionsStack';
-import ProfileStack from './ProfileStack';
+import FeedStack from "./FeedStack";
+import CollectionsStack from "./CollectionsStack";
+import ProfileStack from "./ProfileStack";
 
-// Direct screens
-import SearchScreen from '../screens/Search/SearchScreen';
-import NotificationsScreen from '../screens/Notifications/NotificationsScreen';
-import ChatListScreen from '../screens/Chat/ChatListScreen';
-import ChatScreen from '../screens/Chat/ChatScreen';
-import BlockedUsersScreen from '../screens/Chat/BlockedUsersScreen.js';
+import SearchScreen from "../screens/Search/SearchScreen";
+import NotificationsScreen from "../screens/Notifications/NotificationsScreen";
+import ChatListScreen from "../screens/Chat/ChatListScreen";
+import ChatScreen from "../screens/Chat/ChatScreen";
+import BlockedUsersScreen from "../screens/Chat/BlockedUsersScreen.js";
 
 const Tab = createBottomTabNavigator();
 
@@ -20,7 +18,7 @@ export default function MainTabs() {
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarStyle: { display: 'none' },
+        tabBarStyle: { display: "none" },
       }}
     >
       <Tab.Screen name="FeedTab" component={FeedStack} />

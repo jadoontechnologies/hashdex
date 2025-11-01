@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "513308743657",
+    "firebase_url": "https://hashdex-a33e0-default-rtdb.firebaseio.com",
+    "project_id": "hashdex-a33e0",
+    "storage_bucket": "hashdex-a33e0.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:513308743657:android:2de6e6b0ceb5ab1c861d78",
+        "android_client_info": {
+          "package_name": "com.mehroz2762.hashdex"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "513308743657-6nrpgufn9i22me8abpql7oq730jn68r6.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBBiDowgjAh11QVN5yYDD21CrBPPjrNZHc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "513308743657-6nrpgufn9i22me8abpql7oq730jn68r6.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

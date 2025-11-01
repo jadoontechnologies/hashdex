@@ -1,39 +1,68 @@
 {
   "expo": {
-    "name": "myapp",
-    "slug": "myapp",
+    "name": "hashdex",
+    "slug": "hashdex",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "scheme": "hashdex",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mehroz2762.hashdex"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "permissions": [
+        "NOTIFICATIONS"
+      ],
+      "googleServicesFile": "./android/app/google-services.json",
+      "package": "com.mehroz2762.hashdex",
+      "useNextNotificationsApi": true
     },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#ffffff"
+        }
+      ],
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "node_modules/@expo/vector-icons/Fonts/Feather.ttf"
+          ]
+        }
+      ],
+      "expo-video"
+    ],
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "extra": {
       "firebase": {
-        "apiKey": "YOUR_API_KEY",
-        "authDomain": "YOUR_AUTH_DOMAIN",
-        "projectId": "YOUR_PROJECT_ID",
-        "storageBucket": "YOUR_STORAGE_BUCKET",
-        "messagingSenderId": "YOUR_SENDER_ID",
-        "appId": "YOUR_APP_ID"
+        "apiKey": "AIzaSyBsLBEpGV_YUiN85d76kxWOZ-eojnpkLPk",
+        "authDomain": "hashdex-a33e0.firebaseapp.com",
+        "projectId": "hashdex-a33e0",
+        "storageBucket": "hashdex-a33e0.appspot.com",
+        "messagingSenderId": "513308743657",
+        "appId": "1:513308743657:web:20841b31bcf352ad861d78"
+      },
+      "eas": {
+        "projectId": "0c7f55ec-a7d7-42b3-8e32-a7c4043e567e"
       }
     }
   }

@@ -16,7 +16,7 @@ import { db, storage, now } from "../../services/firebase";
 import { addDoc, collection, doc, updateDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useAuth } from "../../state/AuthContext";
-import Icon from "react-native-vector-icons/Ionicons";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function PortfolioScreen({ navigation, route }) {
   const { user, profile, loading: authLoading } = useAuth();
@@ -119,7 +119,7 @@ export default function PortfolioScreen({ navigation, route }) {
       >
         <View style={styles.headerContent}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Icon name="chevron-back" size={28} color="#fff" />
+            <Ionicons  name="chevron-back" size={28} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>
             {isEditing ? "Edit Portfolio" : "Add Portfolio"}
