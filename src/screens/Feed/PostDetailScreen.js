@@ -1,3 +1,4 @@
+// src/screens/PostDetailScreen.js
 import React, { useEffect, useState, useContext } from "react";
 import {
   View,
@@ -26,14 +27,13 @@ import { addComment, toggleLike, toggleSave } from "../../services/interactions"
 import { updateHashtagCounts } from "../../services/hashtags";
 import { Picker } from "@react-native-picker/picker";
 import { Feather, MaterialIcons } from "@expo/vector-icons";
-import Header from "../../components/Header"; 
-import { Provider, Menu } from "react-native-paper"; // ✅ paper menu
+import Header from "../../components/Header";
+import MediaCarousel from "../../components/MediaCarousel"; // ✅ show videos/images
+import { Provider, Menu } from "react-native-paper";
 
 function getRelativeTime(date) {
   if (!date) return "";
   if (typeof date.toDate === "function") date = date.toDate();
-  if (!(date instanceof Date)) date = new Date(date);
-
   const diff = Math.floor((Date.now() - date.getTime()) / 1000);
   if (diff < 60) return `${diff} sec ago`;
   if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
@@ -46,21 +46,21 @@ function getRelativeTime(date) {
 export default function PostDetailScreen({ route, navigation }) {
   const { id } = route.params;
   const { user } = useContext(AuthContext);
+
   const [post, setPost] = useState(null);
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState("");
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
-
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState("");
   const [visibility, setVisibility] = useState("public");
-
-  // ✅ menu state
   const [menuVisible, setMenuVisible] = useState(false);
 
+  // Subscribe to post & comments
   useEffect(() => {
-    const unsubPost = onSnapshot(doc(db, "posts", id), (snap) => {
+    const postRef = doc(db, "posts", id);
+    const unsubPost = onSnapshot(postRef, (snap) => {
       if (snap.exists()) {
         const data = snap.data();
         setPost({ id, ...data });
@@ -81,23 +81,38 @@ export default function PostDetailScreen({ route, navigation }) {
     };
   }, [id]);
 
-  const onSend = async () => {
+  const handleSendComment = async () => {
     if (!newComment.trim()) return;
-    await addComment(id, user, newComment.trim());
-    setNewComment("");
+    try {
+      await addComment(id, user, newComment.trim());
+      setNewComment("");
+    } catch (err) {
+      console.error("Comment error:", err);
+      Alert.alert("Error", "Failed to send comment");
+    }
   };
 
-  const onLike = async () => {
-    setLiked(!liked);
-    await toggleLike(id, user.uid, liked);
+  const handleLike = async () => {
+    try {
+      setLiked((prev) => !prev);
+      await toggleLike(id, user, liked);
+    } catch (err) {
+      console.error(err);
+      Alert.alert("Error", "Failed to toggle like");
+    }
   };
 
-  const onSave = async () => {
-    setSaved(!saved);
-    await toggleSave(id, user.uid, saved);
+  const handleSave = async () => {
+    try {
+      setSaved((prev) => !prev);
+      await toggleSave(id, user, saved);
+    } catch (err) {
+      console.error(err);
+      Alert.alert("Error", "Failed to toggle save");
+    }
   };
 
-  const onDelete = async () => {
+  const handleDelete = async () => {
     setMenuVisible(false);
     Alert.alert("Delete Post", "Are you sure?", [
       { text: "Cancel", style: "cancel" },
@@ -105,23 +120,28 @@ export default function PostDetailScreen({ route, navigation }) {
         text: "Delete",
         style: "destructive",
         onPress: async () => {
-          if (post?.hashtags) {
-            await updateHashtagCounts(post.hashtags, post.visibility || "public", null);
+          try {
+            if (post?.hashtags) {
+              await updateHashtagCounts(post.hashtags, post.visibility || "public", null);
+            }
+            await deleteDoc(doc(db, "posts", id));
+            navigation.goBack();
+          } catch (err) {
+            console.error(err);
+            Alert.alert("Error", "Failed to delete post");
           }
-          await deleteDoc(doc(db, "posts", id));
-          navigation.goBack();
         },
       },
     ]);
   };
 
-  const saveEdit = async () => {
+  const handleSaveEdit = async () => {
     if (!editText.trim()) return;
     const oldVis = post.visibility || "public";
     const newVis = visibility;
 
     const extractedTags = Array.from(
-      new Set([...editText.matchAll(/#(\w+)/g)].map((m) => m[1]))
+      new Set([...editText.matchAll(/#(\w+)/g)].map((m) => m[1].toLowerCase()))
     );
 
     const updatedPayload = {
@@ -131,35 +151,41 @@ export default function PostDetailScreen({ route, navigation }) {
       updatedAt: new Date(),
     };
 
-    await updateDoc(doc(db, "posts", id), updatedPayload);
+    try {
+      await updateDoc(doc(db, "posts", id), updatedPayload);
 
-    if (post.hashtags?.length || extractedTags.length) {
-      await updateHashtagCounts(post.hashtags || [], oldVis, null);
-      await updateHashtagCounts(extractedTags, null, newVis);
+      if (post.hashtags?.length || extractedTags.length) {
+        await updateHashtagCounts(post.hashtags || [], oldVis, null);
+        await updateHashtagCounts(extractedTags, null, newVis);
+      }
+
+      // Update in collections if necessary
+      const collectionsSnap = await getDocs(collection(db, "collections"));
+      for (const colSnap of collectionsSnap.docs) {
+        const itemsRef = collection(db, "collections", colSnap.id, "items");
+        const itemQ = query(itemsRef, where("postId", "==", id));
+        const itemSnap = await getDocs(itemQ);
+        itemSnap.forEach(async (itemDoc) => {
+          await updateDoc(itemDoc.ref, updatedPayload);
+        });
+      }
+
+      setIsEditing(false);
+    } catch (err) {
+      console.error(err);
+      Alert.alert("Error", "Failed to save edits");
     }
-
-    const collectionsSnap = await getDocs(collection(db, "collections"));
-    for (const colSnap of collectionsSnap.docs) {
-      const itemsRef = collection(db, "collections", colSnap.id, "items");
-      const itemQ = query(itemsRef, where("postId", "==", id));
-      const itemSnap = await getDocs(itemQ);
-      itemSnap.forEach(async (itemDoc) => {
-        await updateDoc(itemDoc.ref, updatedPayload);
-      });
-    }
-
-    setIsEditing(false);
   };
 
   if (!post) return <Text style={{ padding: 20 }}>Loading...</Text>;
 
-  const createdAt = post.createdAt?.toDate();
+  const createdAt = post.createdAt?.toDate?.() ?? null;
   const relativeTime = createdAt ? getRelativeTime(createdAt) : "";
 
   return (
     <Provider>
       <View style={{ flex: 1 }}>
-        {/* ✅ Header with menu */}
+        {/* Header */}
         <Header
           title={isEditing ? "Edit Post" : "Post Detail"}
           leftIcon="arrow-back"
@@ -168,12 +194,8 @@ export default function PostDetailScreen({ route, navigation }) {
           onRightPress={() => setMenuVisible(true)}
         />
 
-        {/* ✅ Paper Menu Dropdown */}
-        <Menu
-          visible={menuVisible}
-          onDismiss={() => setMenuVisible(false)}
-          anchor={{ x: 400, y: 75 }} 
-        >
+        {/* Menu */}
+        <Menu visible={menuVisible} onDismiss={() => setMenuVisible(false)} anchor={{ x: 400, y: 75 }}>
           {post.author?.id === user.uid && (
             <>
               <Menu.Item
@@ -186,16 +208,13 @@ export default function PostDetailScreen({ route, navigation }) {
                 leadingIcon={() => <Feather name="edit-2" size={18} />}
               />
               <Menu.Item
-                onPress={onDelete}
+                onPress={handleDelete}
                 title="Delete Post"
                 leadingIcon={() => <MaterialIcons name="delete-outline" size={20} />}
               />
             </>
           )}
-          <Menu.Item
-            onPress={() => setMenuVisible(false)}
-            title="Cancel"
-          />
+          <Menu.Item onPress={() => setMenuVisible(false)} title="Cancel" />
         </Menu>
 
         {/* Post + Comments */}
@@ -246,7 +265,7 @@ export default function PostDetailScreen({ route, navigation }) {
                     </Picker>
                   </View>
                   <View style={styles.row}>
-                    <TouchableOpacity onPress={saveEdit} style={styles.btn}>
+                    <TouchableOpacity onPress={handleSaveEdit} style={styles.btn}>
                       <Text style={{ color: "#fff" }}>Save</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
@@ -258,22 +277,24 @@ export default function PostDetailScreen({ route, navigation }) {
                   </View>
                 </View>
               ) : (
-                <Text style={styles.text}>{post.text}</Text>
-              )}
-
-              {post.image && (
-                <Image source={{ uri: post.image }} style={styles.image} />
+                <>
+                  <Text style={styles.text}>{post.text}</Text>
+                  {/* ✅ Render multiple images/videos */}
+                  {Array.isArray(post.media) && post.media.length > 0 && (
+                    <MediaCarousel media={post.media} />
+                  )}
+                </>
               )}
 
               {!isEditing && (
                 <View style={styles.actions}>
-                  <TouchableOpacity onPress={onLike}>
+                  <TouchableOpacity onPress={handleLike}>
                     <Text>{liked ? "❤️ Unlike" : "🤍 Like"} ({post.stats?.likes || 0})</Text>
                   </TouchableOpacity>
                   <TouchableOpacity>
                     <Text>💬 Comment ({post.stats?.comments || 0})</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={onSave}>
+                  <TouchableOpacity onPress={handleSave}>
                     <Text>{saved ? "🔖 Saved" : "🔖 Save"} ({post.stats?.saves || 0})</Text>
                   </TouchableOpacity>
                 </View>
@@ -290,7 +311,7 @@ export default function PostDetailScreen({ route, navigation }) {
                     value={newComment}
                     onChangeText={setNewComment}
                   />
-                  <TouchableOpacity onPress={onSend}>
+                  <TouchableOpacity onPress={handleSendComment}>
                     <Text style={{ color: "#ff6a3d", fontWeight: "700" }}>Send</Text>
                   </TouchableOpacity>
                 </View>
@@ -311,13 +332,12 @@ const styles = StyleSheet.create({
   author: { fontWeight: "700", fontSize: 16 },
   timestamp: { fontSize: 12, color: "#777" },
   text: { marginBottom: 8, fontSize: 15 },
-  image: { width: "100%", height: 200, borderRadius: 8, marginBottom: 8 },
   actions: { flexDirection: "row", justifyContent: "space-around", paddingVertical: 8 },
   editBox: { backgroundColor: "#f9f9f9", padding: 8, borderRadius: 6 },
   input: { borderWidth: 1, borderColor: "#ccc", borderRadius: 6, padding: 6, minHeight: 60 },
   row: { flexDirection: "row", justifyContent: "space-around", marginTop: 8 },
   btn: { backgroundColor: "#ff6a3d", paddingHorizontal: 14, paddingVertical: 8, borderRadius: 6 },
-  dropdown: { borderWidth: 1, borderColor: "#ccc", borderRadius: 6, marginVertical: 8,},
+  dropdown: { borderWidth: 1, borderColor: "#ccc", borderRadius: 6, marginVertical: 8 },
   commentSection: { backgroundColor: "#fff", borderRadius: 10, padding: 8 },
   commentBox: { flexDirection: "row", alignItems: "center", borderTopWidth: 1, borderColor: "#eee", padding: 8 },
   commentCard: { backgroundColor: "#f8f8f8", borderRadius: 8, padding: 8, marginVertical: 4 },

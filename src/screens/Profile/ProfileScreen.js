@@ -8,8 +8,9 @@ import {
   Image,
   Text,
   Linking,
+  Share,
 } from "react-native";
-import Icon from "react-native-vector-icons/Ionicons";
+import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { AuthContext } from "../../state/AuthContext";
 import { follow, unfollow } from "../../services/social";
@@ -24,7 +25,6 @@ import {
 } from "firebase/firestore";
 import PostCard from "../../components/PostCard";
 import { Menu, Provider } from "react-native-paper";
-import { Share } from "react-native";
 
 export default function ProfileScreen({ navigation, route }) {
   const { user, profile, signOut } = useContext(AuthContext);
@@ -95,8 +95,7 @@ export default function ProfileScreen({ navigation, route }) {
   useEffect(() => {
     const unsubPortfolio = onSnapshot(
       collection(db, "users", targetId, "portfolio"),
-      (snap) =>
-        setPortfolio(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+      (snap) => setPortfolio(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
     );
     return unsubPortfolio;
   }, [targetId]);
@@ -104,8 +103,7 @@ export default function ProfileScreen({ navigation, route }) {
   const toggleFollow = async () => {
     try {
       if (isFollowing) await unfollow(user.uid, targetId);
-      else if (otherProfile)
-        await follow(user.uid, targetId, profile, otherProfile);
+      else if (otherProfile) await follow(user.uid, targetId, profile, otherProfile);
       else Alert.alert("Please wait", "Profile is still loading.");
     } catch {
       Alert.alert("Error", "Could not update follow state. Try again.");
@@ -124,14 +122,14 @@ export default function ProfileScreen({ navigation, route }) {
           style={styles.portfolioImage}
         />
         <Text style={styles.portfolioDesc}>{item.description}</Text>
-        {item.link ? (
+        {item.link && (
           <Text
             style={styles.portfolioLink}
             onPress={() => Linking.openURL(item.link)}
           >
             🔗 {item.link}
           </Text>
-        ) : null}
+        )}
 
         <View style={styles.actionsRow}>
           <TouchableOpacity onPress={() => setLiked(!liked)}>
@@ -149,7 +147,7 @@ export default function ProfileScreen({ navigation, route }) {
             onDismiss={() => setMenuVisible(false)}
             anchor={
               <TouchableOpacity onPress={() => setMenuVisible(true)}>
-                <Icon name="ellipsis-vertical" size={18} color="#555" />
+                <Ionicons name="ellipsis-vertical" size={18} color="#555" />
               </TouchableOpacity>
             }
           >
@@ -165,7 +163,7 @@ export default function ProfileScreen({ navigation, route }) {
                 }
               }}
               title="Share"
-              leadingIcon="share-variant"
+              leadingIcon={(props) => <Ionicons name="share-social-outline" {...props} />}
             />
 
             {viewingOwn && (
@@ -175,7 +173,7 @@ export default function ProfileScreen({ navigation, route }) {
                   navigation.navigate("Portfolio", { editItem: item });
                 }}
                 title="Edit"
-                leadingIcon="pencil"
+                leadingIcon={(props) => <Ionicons name="pencil-outline" {...props} />}
               />
             )}
           </Menu>
@@ -193,7 +191,7 @@ export default function ProfileScreen({ navigation, route }) {
     >
       <View style={styles.headerContent}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="chevron-back" size={28} color="#fff" />
+          <Ionicons name="chevron-back" size={28} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Profile</Text>
 
@@ -202,7 +200,7 @@ export default function ProfileScreen({ navigation, route }) {
           onDismiss={() => setMenuVisible(false)}
           anchor={
             <TouchableOpacity onPress={() => setMenuVisible(true)}>
-              <Icon name="ellipsis-vertical" size={22} color="#fff" />
+              <Ionicons name="ellipsis-vertical" size={22} color="#fff" />
             </TouchableOpacity>
           }
         >
@@ -210,38 +208,32 @@ export default function ProfileScreen({ navigation, route }) {
             onPress={async () => {
               setMenuVisible(false);
               try {
-                if (await Sharing.isAvailableAsync()) {
-                  await Sharing.shareAsync(
-                    `https://yourapp.com/profile/${targetId}`
-                  );
-                } else {
-                  Alert.alert("Sharing not available");
-                }
+                await Share.share({
+                  message: `Check out this profile: https://yourapp.com/profile/${targetId}`,
+                });
               } catch (e) {
                 console.log(e);
               }
             }}
             title="Share"
-            leadingIcon="share-variant"
+            leadingIcon={(props) => <Ionicons name="share-social-outline" {...props} />}
           />
           {viewingOwn && (
-            <>
-              <Menu.Item
-                onPress={() => {
-                  setMenuVisible(false);
-                  Alert.alert(
-                    "Confirm Sign Out",
-                    "Are you sure you want to sign out?",
-                    [
-                      { text: "Cancel", style: "cancel" },
-                      { text: "Sign Out", style: "destructive", onPress: signOut },
-                    ]
-                  );
-                }}
-                title="Sign Out"
-                leadingIcon="logout"
-              />
-            </>
+            <Menu.Item
+              onPress={() => {
+                setMenuVisible(false);
+                Alert.alert(
+                  "Confirm Sign Out",
+                  "Are you sure you want to sign out?",
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    { text: "Sign Out", style: "destructive", onPress: signOut },
+                  ]
+                );
+              }}
+              title="Sign Out"
+              leadingIcon={(props) => <Ionicons name="log-out-outline" {...props} />}
+            />
           )}
         </Menu>
       </View>
@@ -286,7 +278,7 @@ export default function ProfileScreen({ navigation, route }) {
           )}
         </View>
       </View>
-    </LinearGradient >
+    </LinearGradient>
   );
 
   const Tabs = () => (
@@ -313,7 +305,7 @@ export default function ProfileScreen({ navigation, route }) {
             postViewMode === "list" && styles.toggleBtnActive,
           ]}
         >
-          <Icon
+          <Ionicons
             name="list-outline"
             size={22}
             color={postViewMode === "list" ? "#fff" : "#555"}
@@ -326,7 +318,7 @@ export default function ProfileScreen({ navigation, route }) {
             postViewMode === "grid" && styles.toggleBtnActive,
           ]}
         >
-          <Icon
+          <Ionicons
             name="grid-outline"
             size={22}
             color={postViewMode === "grid" ? "#fff" : "#555"}
@@ -352,9 +344,7 @@ export default function ProfileScreen({ navigation, route }) {
               postViewMode === "grid" ? (
                 <TouchableOpacity
                   style={styles.gridItem}
-                  onPress={() =>
-                    navigation.navigate("PostDetail", { id: item.id })
-                  }
+                  onPress={() => navigation.navigate("PostDetail", { id: item.id })}
                 >
                   <Image
                     source={{
@@ -365,9 +355,27 @@ export default function ProfileScreen({ navigation, route }) {
                     }}
                     style={styles.gridImage}
                   />
+                  <Text style={{ marginTop: 4 }}>
+                    {item.author.id === user.uid
+                      ? profile?.displayName
+                      : item.authorName || "Unknown"}
+                  </Text>
                 </TouchableOpacity>
               ) : (
-                <PostCard post={item} navigation={navigation} />
+                <PostCard
+                  post={{
+                    ...item,
+                    authorName:
+                      item.author.id === user.uid
+                        ? profile?.displayName
+                        : item.authorName,
+                    authorPhoto:
+                      item.author.id === user.uid
+                        ? profile?.photoURL
+                        : item.authorPhoto,
+                  }}
+                  navigation={navigation}
+                />
               )
             ) : (
               <PortfolioCard item={item} />
@@ -381,7 +389,7 @@ export default function ProfileScreen({ navigation, route }) {
             style={styles.fab}
             onPress={() => navigation.navigate("Portfolio")}
           >
-            <Icon name="add" size={28} color="#fff" />
+            <Ionicons name="add" size={28} color="#fff" />
           </TouchableOpacity>
         )}
       </View>

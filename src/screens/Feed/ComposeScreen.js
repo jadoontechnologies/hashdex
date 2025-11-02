@@ -1,4 +1,3 @@
-// src/screens/ComposeScreen.js
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -12,9 +11,10 @@ import {
   ActivityIndicator,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import { Video } from "expo-av";
 import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons } from "@expo/vector-icons"; // icons
-import { db, storage, now } from "../../services/firebase";
+import { Ionicons } from "@expo/vector-icons";
+import { db, now } from "../../services/firebase";
 import {
   addDoc,
   collection,
@@ -27,26 +27,24 @@ import {
   setDoc,
   arrayUnion,
 } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useAuth } from "../../state/AuthContext";
 import { trackHashtags } from "../../services/hashtags";
+import { uploadToCloudinary } from "../../services/cloudinary";
 
 export default function ComposeScreen({ navigation }) {
   const { user, profile, loading: authLoading } = useAuth();
 
   const [text, setText] = useState("");
-  const [image, setImage] = useState(null);
+  const [media, setMedia] = useState(null); // {uri, type: 'image' | 'video'}
   const [hashtags, setHashtags] = useState("");
   const [collectionName, setCollectionName] = useState("");
   const [visibility, setVisibility] = useState("public");
   const [loading, setLoading] = useState(false);
-
-  // collections state
   const [allCollections, setAllCollections] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [selectedCollection, setSelectedCollection] = useState(null);
 
-  // fetch collections
+  // Fetch user collections
   useEffect(() => {
     if (!user?.uid) return;
     const loadCollections = async () => {
@@ -58,7 +56,7 @@ export default function ComposeScreen({ navigation }) {
     loadCollections();
   }, [user]);
 
-  // filter collections
+  // Filter collections based on input
   useEffect(() => {
     if (!collectionName.trim()) {
       setFiltered([]);
@@ -71,7 +69,7 @@ export default function ComposeScreen({ navigation }) {
     setFiltered(results);
   }, [collectionName, allCollections]);
 
-  // quick create
+  // Quick create collection
   const quickCreateCollection = async (name) => {
     try {
       const payload = {
@@ -97,51 +95,47 @@ export default function ComposeScreen({ navigation }) {
     }
   };
 
-  // pick image
-  const pickImage = async () => {
+  // Pick image or video
+  const pickMedia = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 4],
-      quality: 0.7,
+      mediaTypes: ImagePicker.MediaTypeOptions.All,
+      allowsEditing: false,
+      quality: 0.8,
     });
-    if (!result.canceled) {
-      setImage(result.assets[0].uri);
+    if (!result.canceled && result.assets.length > 0) {
+      const picked = result.assets[0];
+      setMedia({
+        uri: picked.uri,
+        type: picked.type === "video" ? "video" : "image",
+      });
     }
   };
 
-  // upload image
-  const uploadImageAsync = async (uri) => {
-    const response = await fetch(uri);
-    const blob = await response.blob();
-    const storageRef = ref(storage, `posts/${Date.now()}.jpg`);
-    await uploadBytes(storageRef, blob);
-    return await getDownloadURL(storageRef);
-  };
-
-  // submit post
+  // Submit post
   const submitPost = async () => {
-    if (authLoading) {
-      Alert.alert("⏳ Please wait, loading profile...");
-      return;
-    }
-    if (!profile) {
+    if (authLoading || !profile) {
       Alert.alert("⚠️ Profile not loaded yet.");
       return;
     }
-    if (!text.trim() && !image) {
-      Alert.alert("⚠️ Error", "Please write something or add an image.");
+    if (!text.trim() && !media) {
+      Alert.alert("⚠️ Error", "Please write something or add a media file.");
       return;
     }
 
     setLoading(true);
     try {
-      let imageUrl = null;
-      if (image) {
-        imageUrl = await uploadImageAsync(image);
+      // Upload media to Cloudinary
+      let mediaUrl = null;
+      if (media) {
+        mediaUrl = await uploadToCloudinary(media.uri, media.type);
+        if (!mediaUrl) {
+          Alert.alert("❌ Error", "Failed to upload media. Try again.");
+          setLoading(false);
+          return;
+        }
       }
 
-      // extract hashtags
+      // Extract hashtags
       const extractedTags = Array.from(
         new Set(
           [
@@ -155,9 +149,10 @@ export default function ComposeScreen({ navigation }) {
         )
       );
 
+      // Post payload
       const payload = {
         text,
-        image: imageUrl,
+        media: mediaUrl ? [{ type: media.type, url: mediaUrl }] : [],
         hashtags: extractedTags,
         visibility,
         createdAt: now(),
@@ -175,30 +170,25 @@ export default function ComposeScreen({ navigation }) {
         comments: 0,
       };
 
+      // Add post to Firestore
       const postRef = await addDoc(collection(db, "posts"), payload);
 
+      // Track hashtags
       if (extractedTags.length) {
         await trackHashtags(extractedTags);
-
         for (const tag of extractedTags) {
           const tagRef = doc(db, "hashtags", tag.toLowerCase());
           await setDoc(
             tagRef,
-            {
-              posts: {
-                [visibility]: arrayUnion(postRef.id),
-              },
-              updatedAt: now(),
-            },
+            { posts: { [visibility]: arrayUnion(postRef.id) }, updatedAt: now() },
             { merge: true }
           );
         }
       }
 
-      // add to collection if given
+      // Add to collection if selected
       if (collectionName) {
         let targetCollection = selectedCollection;
-
         if (!targetCollection) {
           const q = query(
             collection(db, "collections"),
@@ -228,9 +218,9 @@ export default function ComposeScreen({ navigation }) {
         Alert.alert("✅ Success", "Your post has been published!");
       }
 
-      // reset form
+      // Reset form
       setText("");
-      setImage(null);
+      setMedia(null);
       setHashtags("");
       setCollectionName("");
       setSelectedCollection(null);
@@ -280,9 +270,18 @@ export default function ComposeScreen({ navigation }) {
             multiline
           />
 
-          <TouchableOpacity style={styles.coverBox} onPress={pickImage}>
-            {image ? (
-              <Image source={{ uri: image }} style={styles.coverImage} />
+          <TouchableOpacity style={styles.coverBox} onPress={pickMedia}>
+            {media ? (
+              media.type === "image" ? (
+                <Image source={{ uri: media.uri }} style={styles.coverImage} />
+              ) : (
+                <Video
+                  source={{ uri: media.uri }}
+                  style={styles.coverImage}
+                  resizeMode="cover"
+                  useNativeControls
+                />
+              )
             ) : (
               <Ionicons name="image-outline" size={32} color="#888" />
             )}
@@ -295,7 +294,6 @@ export default function ComposeScreen({ navigation }) {
             onChangeText={setHashtags}
           />
 
-          {/* collections input */}
           <RNTextInput
             style={styles.input}
             placeholder="Enter collection name (optional)"
@@ -306,15 +304,12 @@ export default function ComposeScreen({ navigation }) {
             }}
           />
 
-          {/* dropdown */}
           {collectionName.length > 0 && !selectedCollection && (
             <View style={styles.dropdown}>
-              {[
-                ...filtered,
+              {[...filtered,
                 !filtered.some(
                   (c) =>
-                    c.title.toLowerCase() ===
-                    collectionName.trim().toLowerCase()
+                    c.title.toLowerCase() === collectionName.trim().toLowerCase()
                 ) && {
                   id: "new",
                   title: `➕ Create "${collectionName}"`,
@@ -327,9 +322,8 @@ export default function ComposeScreen({ navigation }) {
                     key={item.id}
                     style={styles.dropdownItem}
                     onPress={() => {
-                      if (item.isNew) {
-                        quickCreateCollection(collectionName);
-                      } else {
+                      if (item.isNew) quickCreateCollection(collectionName);
+                      else {
                         setSelectedCollection(item);
                         setCollectionName(item.title);
                         setFiltered([]);
@@ -342,7 +336,6 @@ export default function ComposeScreen({ navigation }) {
             </View>
           )}
 
-          {/* visibility toggle */}
           <View style={styles.visibilityRow}>
             {["public", "friends", "private"].map((opt) => (
               <TouchableOpacity
@@ -395,13 +388,13 @@ const styles = StyleSheet.create({
     paddingTop: 14,
   },
   backBtn: { position: "absolute", left: 16, top: 30 },
-  headerTitle: { fontSize: 22, fontWeight: "700", color: "#fff", paddingTop: 8 },
-  card: {
-    backgroundColor: "#fff",
-    padding: 16,
-    margin: 16,
-    borderRadius: 12,
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#fff",
+    paddingTop: 8,
   },
+  card: { backgroundColor: "#fff", padding: 16, margin: 16, borderRadius: 12 },
   input: {
     borderWidth: 1,
     borderColor: "#ccc",
@@ -413,7 +406,7 @@ const styles = StyleSheet.create({
   },
   coverBox: {
     width: "100%",
-    height: 180,
+    height: 220,
     backgroundColor: "#eee",
     borderRadius: 12,
     alignItems: "center",

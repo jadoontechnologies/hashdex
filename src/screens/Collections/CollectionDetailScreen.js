@@ -1,5 +1,5 @@
 // screens/Collections/CollectionDetailScreen.js
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,6 @@ import {
   StyleSheet,
   Alert,
   Share,
-  Modal,
   Image,
   ScrollView,
 } from 'react-native';
@@ -17,7 +16,6 @@ import { db } from '../../services/firebase';
 import { doc, getDoc, collection, getDocs, query, orderBy, deleteDoc } from 'firebase/firestore';
 import { MaterialIcons, Feather } from '@expo/vector-icons';
 
-// theme colors
 const theme = {
   primary: '#ff6a3d',
   background: '#f9f9f9',
@@ -36,23 +34,26 @@ export default function CollectionDetailScreen({ route, navigation }) {
 
   useEffect(() => {
     async function load() {
-      const ss = await getDoc(doc(db, 'collections', id));
-      if (ss.exists()) setColl({ id, ...ss.data() });
+      try {
+        const ss = await getDoc(doc(db, 'collections', id));
+        if (ss.exists()) setColl({ id, ...ss.data() });
 
-      const q = query(collection(db, 'collections', id, 'items'), orderBy('createdAt', 'asc'));
-      const list = await getDocs(q);
-      const arr = list.docs.map(d => ({ id: d.id, ...d.data() }));
-      setItems(arr);
+        const q = query(collection(db, 'collections', id, 'items'), orderBy('createdAt', 'asc'));
+        const list = await getDocs(q);
+        const arr = list.docs.map((d) => ({ id: d.id, ...d.data() }));
+        setItems(arr);
 
-      // derive hashtags for demo
-      const setTags = new Set();
-      arr.forEach(i => {
-        if (i.visibility === visibility) (i.hashtags || []).forEach(t => setTags.add(t));
-      });
-      setHashtags(Array.from(setTags).sort());
+        const setTags = new Set();
+        arr.forEach((i) => {
+          (i.hashtags || []).forEach((t) => setTags.add(t));
+        });
+        setHashtags(Array.from(setTags).sort());
+      } catch (err) {
+        console.error('Error loading collection:', err);
+      }
     }
     load();
-  }, [id, visibility]);
+  }, [id]);
 
   const shareCollection = async () => {
     try {
@@ -71,8 +72,13 @@ export default function CollectionDetailScreen({ route, navigation }) {
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
-          await deleteDoc(doc(db, 'collections', id));
-          navigation.goBack();
+          try {
+            await deleteDoc(doc(db, 'collections', id));
+            if (navigation.canGoBack()) navigation.goBack();
+            else navigation.navigate('Collections');
+          } catch (err) {
+            Alert.alert('Error', 'Failed to delete collection');
+          }
         },
       },
     ]);
@@ -100,21 +106,29 @@ export default function CollectionDetailScreen({ route, navigation }) {
     );
   }
 
-  const visiblePosts = items.filter(i => i.visibility === visibility);
+  const visiblePosts = items.filter((i) => i.visibility === visibility);
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.background }}>
       {/* Header */}
       <LinearGradient
-        colors={["#F9F871", "#F28A47", "#DE5C76"]}
+        colors={['#F9F871', '#F28A47', '#DE5C76']}
         start={{ x: 0, y: 1 }}
         end={{ x: 0, y: 0 }}
         style={styles.customHeader}
       >
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => {
+            if (navigation.canGoBack()) navigation.goBack();
+            else navigation.navigate('Collections');
+          }}
+        >
           <Text style={styles.backIcon}>{'<'}</Text>
         </TouchableOpacity>
+
         <Text style={styles.headerTitle}>{coll.title}</Text>
+
         <TouchableOpacity style={styles.menuBtn} onPress={() => setShowMenu(true)}>
           <MaterialIcons name="more-vert" size={28} color="white" />
         </TouchableOpacity>
@@ -123,41 +137,36 @@ export default function CollectionDetailScreen({ route, navigation }) {
       {/* Content */}
       <FlatList
         data={visiblePosts}
-        keyExtractor={i => i.id}
+        keyExtractor={(i) => i.id}
         contentContainerStyle={{ paddingBottom: 20 }}
         ListHeaderComponent={
           <>
-            {/* cover image */}
             {coll.cover?.url ? (
               <Image source={{ uri: coll.cover.url }} style={styles.coverImage} />
             ) : null}
 
-            {/* description */}
             {coll.description ? (
               <View style={styles.descCard}>
                 <Text style={{ color: theme.text }}>{coll.description}</Text>
               </View>
             ) : null}
 
-            {/* visibility tabs */}
             <View style={styles.visibilityRow}>
-              {['public', 'friends', 'private'].map(opt => (
+              {['public', 'friends', 'private'].map((opt) => (
                 <TouchableOpacity
                   key={opt}
                   style={[styles.visibilityBtn, visibility === opt && styles.selectedVisibility]}
                   onPress={() => setVisibility(opt)}
                 >
-                  <Text style={{ color: visibility === opt ? '#fff' : theme.text }}>
-                    {opt}
-                  </Text>
+                  <Text style={{ color: visibility === opt ? '#fff' : theme.text }}>{opt}</Text>
                 </TouchableOpacity>
               ))}
             </View>
 
-            {/* hashtags */}
             <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
               <Text style={{ fontWeight: '700', color: theme.text }}>Hashtags</Text>
             </View>
+
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -166,12 +175,16 @@ export default function CollectionDetailScreen({ route, navigation }) {
               {hashtags.length === 0 ? (
                 <Text style={{ color: theme.muted }}>No tags</Text>
               ) : (
-                hashtags.map(tag => (
+                hashtags.map((tag) => (
                   <TouchableOpacity
                     key={tag}
                     style={styles.tagChip}
                     onPress={() =>
-                      navigation.navigate('HashtagPosts', { collectionId: id, hashtag: tag, visibility })
+                      navigation.navigate('HashtagPosts', {
+                        collectionId: id,
+                        hashtag: tag,
+                        visibility,
+                      })
                     }
                   >
                     <Text style={styles.tagText}>{tag}</Text>
@@ -180,7 +193,6 @@ export default function CollectionDetailScreen({ route, navigation }) {
               )}
             </ScrollView>
 
-            {/* posts header */}
             <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
               <Text style={{ fontWeight: '700', color: theme.text }}>Posts</Text>
             </View>
@@ -189,6 +201,15 @@ export default function CollectionDetailScreen({ route, navigation }) {
         renderItem={({ item }) => (
           <View style={styles.postCard}>
             <Text style={styles.postType}>{item.type?.toUpperCase()}</Text>
+
+            {/* ✅ Show image/video if available */}
+            {item.imageUrl && (
+              <Image source={{ uri: item.imageUrl }} style={{ width: '100%', height: 180, borderRadius: 12, marginBottom: 8 }} />
+            )}
+            {item.videoUrl && (
+              <Text style={{ color: theme.primary, marginBottom: 8 }}>🎬 Video: {item.videoUrl}</Text>
+            )}
+
             {item.type === 'link' ? (
               <Text style={{ color: theme.primary }}>{item.url}</Text>
             ) : (
@@ -203,46 +224,52 @@ export default function CollectionDetailScreen({ route, navigation }) {
         )}
       />
 
-      {/* menu modal */}
-      <Modal visible={showMenu} animationType="slide" transparent onRequestClose={() => setShowMenu(false)}>
-        <View style={styles.modalOverlay}>
-          <TouchableOpacity style={{ flex: 1 }} onPress={() => setShowMenu(false)} />
-          <LinearGradient
-            colors={["#F9F87180", "#F28A4780", "#DE5C7680"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.menuSheet}
+      {/* Paper-style dropdown menu */}
+      {showMenu && (
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          activeOpacity={1}
+          onPress={() => setShowMenu(false)}
+        >
+          <View
+            style={{
+              position: 'absolute',
+              top: 70,
+              right: 10,
+              backgroundColor: '#fff',
+              borderRadius: 12,
+              paddingVertical: 6,
+              width: 180,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.2,
+              shadowRadius: 6,
+              elevation: 5,
+            }}
           >
             <TouchableOpacity
-              style={styles.menuItem}
+              style={styles.menuOption}
               onPress={() => {
                 setShowMenu(false);
                 navigation.navigate('EditCollection', { id });
               }}
             >
-              <Feather name="edit" size={20} color="#fff" />
-              <Text style={styles.menuText}>Edit Collection</Text>
+              <Feather name="edit" size={18} color={theme.text} />
+              <Text style={styles.menuOptionText}>Edit Collection</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.menuItem} onPress={shareCollection}>
-              <Feather name="share" size={20} color="#fff" />
-              <Text style={styles.menuText}>Share</Text>
+            <TouchableOpacity style={styles.menuOption} onPress={shareCollection}>
+              <Feather name="share" size={18} color={theme.text} />
+              <Text style={styles.menuOptionText}>Share</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.menuItem, { backgroundColor: "rgba(220,38,38,0.66)" }]}
-              onPress={deleteCollection}
-            >
-              <MaterialIcons name="delete-outline" size={20} color="#fff" />
-              <Text style={[styles.menuText, { color: '#fff' }]}>Delete Collection</Text>
+            <TouchableOpacity style={styles.menuOption} onPress={deleteCollection}>
+              <MaterialIcons name="delete-outline" size={18} color="red" />
+              <Text style={[styles.menuOptionText, { color: 'red' }]}>Delete</Text>
             </TouchableOpacity>
-
-            <TouchableOpacity style={styles.menuClose} onPress={() => setShowMenu(false)}>
-              <Text style={{ color: '#fff', fontWeight: '600' }}>Cancel</Text>
-            </TouchableOpacity>
-          </LinearGradient>
-        </View>
-      </Modal>
+          </View>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -315,27 +342,16 @@ const styles = StyleSheet.create({
   postType: { fontWeight: '700', marginBottom: 4, color: theme.primary },
   postDate: { marginTop: 6, fontSize: 12, color: theme.muted },
 
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  menuSheet: {
-    backgroundColor: "rgba(30,30,30,0.95)",
-    padding: 20,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    width: '100%',
-  },
-  menuItem: {
+  // dropdown menu styles
+  menuOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
   },
-  menuText: { color: '#fff', fontSize: 16, marginLeft: 10 },
-  menuClose: { marginTop: 10, alignItems: 'center' },
+  menuOptionText: {
+    fontSize: 15,
+    color: theme.text,
+    marginLeft: 10,
+  },
 });

@@ -19,6 +19,7 @@ import { db, now } from '../../services/firebase';
 import { doc, getDoc, updateDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
 import { MaterialIcons } from '@expo/vector-icons';
 import theme from '../../theme/colors';
+import { uploadToCloudinary } from '../../services/cloudinary'; // ✅ Import Cloudinary helper
 
 export default function EditCollectionScreen({ route, navigation }) {
   const { id } = route.params;
@@ -48,7 +49,7 @@ export default function EditCollectionScreen({ route, navigation }) {
           setCover(data.cover?.url || null);
         }
         const itemsSnap = await getDocs(collection(db, 'collections', id, 'items'));
-        const loadedItems = itemsSnap.docs.map(d => {
+        const loadedItems = itemsSnap.docs.map((d) => {
           const itemData = d.data();
           return {
             id: d.id,
@@ -68,13 +69,27 @@ export default function EditCollectionScreen({ route, navigation }) {
     loadCollection();
   }, [id]);
 
+  // ✅ Updated pickImage with Cloudinary upload
   async function pickImage() {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.7,
-    });
-    if (!result.canceled) {
-      setCover(result.assets[0].uri);
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.7,
+      });
+
+      if (!result.canceled) {
+        const localUri = result.assets[0].uri;
+        const uploadedUrl = await uploadToCloudinary(localUri, 'image'); // Upload
+        if (uploadedUrl) {
+          setCover(uploadedUrl); // Save Cloudinary URL
+          Alert.alert('Success', 'Cover image updated');
+        } else {
+          Alert.alert('Error', 'Failed to upload cover image');
+        }
+      }
+    } catch (err) {
+      console.error('Image picker error:', err);
+      Alert.alert('Error', 'Failed to pick image');
     }
   }
 
@@ -97,7 +112,7 @@ export default function EditCollectionScreen({ route, navigation }) {
 
   const reloadItems = async () => {
     const itemsSnap = await getDocs(collection(db, 'collections', id, 'items'));
-    const loadedItems = itemsSnap.docs.map(d => {
+    const loadedItems = itemsSnap.docs.map((d) => {
       const itemData = d.data();
       return {
         id: d.id,
@@ -150,21 +165,28 @@ export default function EditCollectionScreen({ route, navigation }) {
     <View style={{ flex: 1, backgroundColor: theme.background }}>
       {/* Header */}
       <LinearGradient
-        colors={["#F9F871", "#F28A47", "#DE5C76"]}
+        colors={['#F9F871', '#F28A47', '#DE5C76']}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={styles.customHeader}
       >
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Text style={{ fontSize: 30, color: 'white', fontWeight: "700" }}>{'<'}</Text>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => {
+            if (navigation.canGoBack()) navigation.goBack();
+            else navigation.navigate('Collections');
+          }}
+        >
+          <Text style={{ fontSize: 30, color: 'white', fontWeight: '700' }}>{'<'}</Text>
         </TouchableOpacity>
+
         <Text style={styles.headerTitle}>Edit Collection</Text>
       </LinearGradient>
 
       <FlatList
         ref={flatListRef}
         data={items}
-        keyExtractor={i => i.id}
+        keyExtractor={(i) => i.id}
         ListHeaderComponent={
           <View style={styles.card}>
             {/* Cover with Change Button */}
@@ -204,7 +226,9 @@ export default function EditCollectionScreen({ route, navigation }) {
         renderItem={({ item }) => (
           <View style={styles.item}>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontWeight: '600', color: theme.text }}>{(item.type || 'text').toUpperCase()}</Text>
+              <Text style={{ fontWeight: '600', color: theme.text }}>
+                {(item.type || 'text').toUpperCase()}
+              </Text>
               <Text style={{ color: theme.muted }}>{item.url || item.text || ''}</Text>
             </View>
             <View style={styles.itemButtons}>
@@ -232,11 +256,7 @@ export default function EditCollectionScreen({ route, navigation }) {
             <Text style={{ fontWeight: '600', marginBottom: 10, color: theme.text }}>
               Edit {editItemData?.type || 'text'}
             </Text>
-            <RNTextInput
-              value={editText}
-              onChangeText={setEditText}
-              style={styles.modalInput}
-            />
+            <RNTextInput value={editText} onChangeText={setEditText} style={styles.modalInput} />
             <Button title="Save" onPress={saveEditItem} />
             <View style={{ height: 10 }} />
             <Button title="Cancel" onPress={() => setShowEditModal(false)} color="red" />

@@ -1,0 +1,52 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+
+buildscript {
+    ext {
+        buildToolsVersion = "35.0.0"
+        minSdkVersion = 24
+        compileSdkVersion = 35
+        targetSdkVersion = 35
+        ndkVersion = "27.1.12297006"
+    }
+
+    repositories {
+        google()
+        mavenCentral()
+    }
+
+    dependencies {
+        // ✅ Core Gradle tools
+        classpath("com.android.tools.build:gradle:8.8.2")
+        classpath("com.facebook.react:react-native-gradle-plugin")
+
+        // ❌ Do NOT add Google Services manually — Expo EAS injects this automatically
+        // classpath("com.google.gms:google-services:4.4.2")
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+        maven { url "https://www.jitpack.io" }
+    }
+}
+
+// ✅ Required by Expo
+apply plugin: "expo-root-project"
+
+// ✅ Enforce SDK + Java compatibility across all subprojects
+subprojects { subproject ->
+    afterEvaluate {
+        if (subproject.plugins.hasPlugin('com.android.application') ||
+            subproject.plugins.hasPlugin('com.android.library')) {
+            android {
+                compileSdk 35
+                compileOptions {
+                    sourceCompatibility JavaVersion.VERSION_17
+                    targetCompatibility JavaVersion.VERSION_17
+                }
+            }
+        }
+    }
+}
