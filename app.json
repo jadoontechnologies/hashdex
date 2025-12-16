@@ -1,0 +1,76 @@
+{
+  "expo": {
+    "name": "Hashdex",
+    "slug": "hashdex",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "hashdex",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": ["**/*"],
+    
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mehroz0.hashdex",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "This app requires access to your microphone to record audio.",
+        "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to select media files."
+      }
+    },
+    
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.mehroz0.hashdex",
+      "permissions": [
+        "RECORD_AUDIO",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "POST_NOTIFICATIONS",
+        "READ_MEDIA_IMAGES",
+        "READ_MEDIA_VIDEO"
+      ],
+      "googleServicesFile": "./android/app/google-services.json",
+      "useNextNotificationsApi": true
+    },
+    
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#ffffff"
+        }
+      ],
+      "expo-video",
+      "expo-image-picker",
+      "expo-document-picker"
+    ],
+    
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    
+    "extra": {
+      "firebase": {
+        "apiKey": "AIzaSyBsLBEpGV_YUiN85d76kxWOZ-eojnpkLPk",
+        "authDomain": "hashdex-a33e0.firebaseapp.com",
+        "projectId": "hashdex-a33e0",
+        "storageBucket": "hashdex-a33e0.appspot.com",
+        "messagingSenderId": "513308743657",
+        "appId": "1:513308743657:web:20841b31bcf352ad861d78"
+      },
+      "eas": {
+        "projectId": "00976d65-560b-45d6-af4d-78f2c7ceb2da"
+      }
+    }
+  }
+}
